@@ -1,0 +1,206 @@
+.accounts-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100%;
+}
+
+.accounts-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  white-space: nowrap;
+}
+
+.accounts-counter-full {
+  background: #f871711f;
+  border-color: #f871714d;
+  color: var(--danger);
+}
+
+.accounts-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  align-items: start;
+}
+
+.accounts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.accounts-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--text-3);
+  font-size: 13px;
+  text-align: center;
+}
+
+.accounts-empty p {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.accounts-spin {
+  animation: accounts-spin 1s linear infinite;
+}
+
+@keyframes accounts-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Individual account entry */
+.account-entry {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.2s var(--transition-fast), box-shadow 0.2s var(--transition-fast);
+}
+
+.account-entry:hover {
+  border-color: var(--border-strong);
+  background: var(--card-hover);
+}
+
+.account-entry-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 16px var(--accent-glow);
+  background: linear-gradient(135deg, var(--card) 0%, var(--accent-dim) 100%);
+}
+
+.account-entry-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-2);
+}
+
+.account-entry-active .account-entry-avatar {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.account-entry-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-entry-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-0);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-entry-active-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.account-entry-type {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.account-entry-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Add account sidebar */
+.accounts-add {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.accounts-add h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-0);
+}
+
+.accounts-add-offline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.accounts-limit-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: #f871711f;
+  border: 1px solid #f871714d;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.accounts-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.accounts-divider::before,
+.accounts-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.accounts-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.55;
+  margin: 0;
+}

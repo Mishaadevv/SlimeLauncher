@@ -1,0 +1,309 @@
+.catalog-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 34px 48px;
+}
+
+.page-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.installed-section {
+  margin: 20px 0;
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.section-heading h2 { font-size: 16px; }
+.section-heading p { color: var(--text-2); font-size: 12px; }
+
+.installed-list { display: grid; gap: 8px; }
+
+.installed-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.installed-map-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.installed-map-info { display: grid; gap: 2px; flex: 1; }
+.installed-map-info span, .installed-empty { color: var(--text-2); font-size: 12px; }
+.installed-empty { padding: 12px 0; }
+
+.catalog-toolbar {
+  display: flex;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 14px;
+  max-width: 440px;
+  flex: 1;
+}
+
+.search-box input {
+  background: none;
+  border: 0;
+  color: var(--text-0);
+  outline: 0;
+  padding: 12px 0;
+  width: 100%;
+}
+
+.version-grid, .download-list {
+  display: grid;
+  gap: 12px;
+}
+
+.version-card, .download-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+}
+
+.version-card h3 { font-size: 14px; }
+.version-card > div:nth-child(2), .download-info { flex: 1; }
+
+.version-icon, .download-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.text-muted { color: var(--text-2); font-size: 12px; }
+
+.version-card-actions { display: flex; gap: 6px; align-items: center; }
+.version-card-actions-wrap { flex-wrap: wrap; justify-content: flex-end; }
+
+.version-installed-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.version-installed-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-dim);
+  border-radius: 999px;
+  padding: 3px 9px;
+  text-transform: capitalize;
+}
+
+.version-tag-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  border-radius: 50%;
+  transition: color 0.15s;
+}
+.version-tag-remove:hover { color: var(--danger); }
+.version-tag-remove:disabled { opacity: 0.4; cursor: default; }
+
+.loader-pill-installed {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-left: 6px;
+}
+
+/* Install modal: loader picker states */
+.loader-pill-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.loader-pill-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: loader-pulse 1s ease-in-out infinite;
+}
+@keyframes loader-pulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+.loader-pill-ok { margin-left: 6px; color: var(--accent); font-size: 11px; }
+.loader-pill-no { margin-left: 6px; color: var(--text-3); font-size: 11px; }
+
+.install-hint {
+  font-size: 12px;
+  color: var(--text-2);
+  margin: 0;
+}
+.install-error-text { color: var(--danger, #f87171); }
+
+.install-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.install-progress-bar {
+  height: 5px;
+  background: var(--bg-3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.install-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.install-progress-text {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.install-eta {
+  color: var(--accent);
+  font-weight: 500;
+}
+.install-error-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: var(--danger, #f87171);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+}
+
+.vanilla-mods-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  margin: 20px 0 0;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-dim);
+  border-radius: var(--radius);
+  color: var(--accent);
+}
+.vanilla-mods-notice svg { flex-shrink: 0; margin-top: 1px; }
+.vanilla-mods-notice div { display: flex; flex-direction: column; gap: 2px; }
+.vanilla-mods-notice strong { font-size: 13px; color: var(--text-0); }
+.vanilla-mods-notice span { font-size: 12px; color: var(--text-2); }
+
+/* Microsoft login modal */
+.ms-login-modal { max-width: 480px; }
+.ms-login-step { font-size: 13px; color: var(--text-1); margin: 0; }
+.ms-login-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: underline;
+  word-break: break-all;
+}
+.ms-login-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px dashed var(--accent);
+  border-radius: 12px;
+  padding: 14px 18px;
+  text-align: center;
+  user-select: all;
+}
+.ms-login-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-2);
+  font-size: 13px;
+  padding: 10px 0 2px;
+}
+.ms-login-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--danger, #f87171);
+  font-size: 13px;
+}
+.ms-login-error svg { flex-shrink: 0; margin-top: 1px; }
+.ms-spin { animation: ms-spin 1s linear infinite; color: var(--accent); }
+@keyframes ms-spin { to { transform: rotate(360deg); } }
+.ms-ok { color: var(--accent); }
+
+.download-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+.download-info { display: grid; gap: 4px; }
+.download-info span { color: var(--text-2); font-size: 12px; }
+
+.progress {
+  height: 4px;
+  background: var(--bg-3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width .25s ease;
+}
+
+.load-more-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0 8px;
+}

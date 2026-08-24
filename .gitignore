@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-electron/
+build/
+release/
+.vscode/
+.tmp-a3
+*.log

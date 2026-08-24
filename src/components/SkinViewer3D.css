@@ -1,0 +1,98 @@
+.skin-viewer3d {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.skin-viewer3d-canvas {
+  position: relative;
+  border-radius: var(--radius);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 70%, rgba(74, 222, 128, 0.06), transparent 65%),
+    var(--bg-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.skin-viewer3d-canvas:active {
+  cursor: grabbing;
+}
+
+.skin-viewer3d-canvas canvas {
+  display: block;
+}
+
+.skin-viewer3d-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.skin-viewer3d-pills {
+  display: inline-flex;
+  gap: 3px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px;
+}
+
+.skin-viewer3d-pill {
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s var(--transition-fast), background 0.15s var(--transition-fast);
+}
+
+.skin-viewer3d-pill:hover {
+  color: var(--text-0);
+}
+
+.skin-viewer3d-pill-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.skin-viewer3d-spin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s var(--transition-fast), border-color 0.15s var(--transition-fast), background 0.15s var(--transition-fast);
+}
+
+.skin-viewer3d-spin:hover {
+  color: var(--text-0);
+  border-color: var(--accent);
+}
+
+.skin-viewer3d-spin-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.skin-viewer3d-hint {
+  font-size: 11px;
+  color: var(--text-3);
+}

@@ -1,0 +1,36 @@
+.toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--bg-3);
+  border: 1px solid var(--border-strong);
+  position: relative;
+  transition: background 0.2s var(--transition-fast), border-color 0.2s var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.toggle-on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-2);
+  transition: background 0.2s var(--transition-fast);
+}
+
+.toggle-on .toggle-knob {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.toggle-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

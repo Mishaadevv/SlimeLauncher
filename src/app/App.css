@@ -1,0 +1,73 @@
+.app {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.page-container {
+  height: 100%;
+  padding: 24px 28px 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  min-height: 320px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.error-boundary h2 {
+  color: var(--text-primary);
+  font-size: 18px;
+  margin: 0;
+}
+
+.error-boundary p {
+  margin: 0;
+  max-width: 420px;
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.error-boundary-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+
+.error-boundary-retry:hover {
+  background: rgba(255, 255, 255, 0.1);
+}

@@ -1,0 +1,23 @@
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  transition: background 0.25s var(--transition-fast), border-color 0.25s var(--transition-fast), box-shadow 0.25s var(--transition-fast);
+}
+
+.card-hover:hover {
+  background: var(--card-hover);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
+}
+
+.card-interactive {
+  cursor: pointer;
+}
+
+.card-glow:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 24px var(--accent-glow);
+}

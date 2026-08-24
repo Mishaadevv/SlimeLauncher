@@ -1,0 +1,14 @@
+{
+  "name": "slimelauncher-skin-directory",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Skin directory server for SlimeLauncher — lets launcher users see each other's skins on third-party Minecraft servers.",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

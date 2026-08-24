@@ -1,0 +1,45 @@
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 40px;
+  width: 100%;
+}
+
+.loading-blob {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-ring {
+  position: absolute;
+  inset: -10px;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: var(--accent-soft);
+  border-radius: 50%;
+  opacity: 0.6;
+}
+
+.loading-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.loading-sublabel {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.loading-sm .loading-label {
+  font-size: 12px;
+}
+
+.loading-lg .loading-label {
+  font-size: 16px;
+}

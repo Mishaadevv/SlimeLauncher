@@ -1,0 +1,68 @@
+.hotkey-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 0 12px;
+  height: 40px;
+  width: 150px;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--text-0);
+  transition: border-color 0.2s var(--transition-fast), box-shadow 0.2s var(--transition-fast);
+}
+
+.hotkey-input:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.hotkey-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.hotkey-input-listening {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  animation: hotkey-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes hotkey-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); }
+  50% { box-shadow: 0 0 0 5px var(--accent-soft); }
+}
+
+.hotkey-input-icon {
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.hotkey-input-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  text-align: left;
+}
+
+.hotkey-input-empty {
+  color: var(--text-3);
+  font-family: inherit;
+}
+
+.hotkey-input-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.hotkey-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

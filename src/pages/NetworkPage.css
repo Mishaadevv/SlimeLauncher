@@ -1,0 +1,702 @@
+.network-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Override the global large radius for network cards — keep them squarer */
+.network-page .card {
+  border-radius: 10px;
+}
+
+.network-page .network-info-box,
+.network-page .network-help {
+  border-radius: 10px;
+}
+
+/* ─── Setup (create/join) ────────────────────────────────────────────────── */
+
+.network-setup {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 720px) {
+  .network-setup { grid-template-columns: 1fr; }
+}
+
+.network-action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.network-action-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.network-action-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.network-action-icon-create {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.network-action-icon-join {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+}
+
+.network-action-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.network-action-head p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.network-action-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.network-info-box {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.network-info-box svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
+
+.network-info-box strong { color: var(--text); }
+
+.network-info-box p { margin: 4px 0 0; }
+
+/* ─── VPN status banner ─────────────────────────────────────────────────── */
+
+.network-vpn-banner {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.network-vpn-banner-warn {
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  color: #fbbf24;
+}
+
+.network-vpn-banner-warn svg { flex-shrink: 0; margin-top: 2px; color: #fbbf24; }
+
+.network-vpn-banner-ok {
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  color: #4ade80;
+}
+
+.network-vpn-banner-ok svg { flex-shrink: 0; margin-top: 2px; color: #4ade80; }
+
+.network-vpn-banner strong { color: var(--text); }
+
+.network-vpn-banner p { margin: 4px 0 0; color: var(--text-muted); }
+
+/* ─── Active network ─────────────────────────────────────────────────────── */
+
+.network-active {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.network-info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.network-info-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.network-info-head h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.network-info-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.network-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.network-status-dot-live {
+  background: #4ade80;
+  box-shadow: 0 0 6px #4ade8080;
+  animation: network-pulse 2s ease-in-out infinite;
+}
+
+@keyframes network-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.network-key-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.network-key-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.network-key-value {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 2px solid var(--accent);
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  word-break: break-all;
+  user-select: all;
+  min-height: 20px;
+  line-height: 1.4;
+}
+
+.network-key-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.network-host-info {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.network-host-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.network-detail-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.network-detail-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+}
+
+/* ─── Peers ──────────────────────────────────────────────────────────────── */
+
+.network-peers-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.network-peers-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.network-peers-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.network-peer-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.network-peer-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.network-peer-self {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.network-peer-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.network-peer-skin {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+.network-peer-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.network-peer-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.network-peer-detail {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+}
+
+.network-peer-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.network-peer-badge-host {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.network-peer-badge-playing {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.network-peer-badge-online {
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.network-peers-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ─── Help ───────────────────────────────────────────────────────────────── */
+
+.network-help {
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.network-help h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.network-help ol {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.8;
+}
+
+.network-help code {
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  color: var(--accent);
+}
+
+/* ─── Active network grid ────────────────────────────────────────────────── */
+
+.network-active-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .network-active-grid { grid-template-columns: 1fr; }
+}
+
+.network-active-left {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ─── Chat ───────────────────────────────────────────────────────────────── */
+
+.network-chat-card {
+  position: sticky;
+  top: 20px;
+}
+
+.network-chat {
+  display: flex;
+  flex-direction: column;
+  height: 520px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.network-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.network-chat-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.network-chat-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.network-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.network-chat-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.network-chat-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+/* Own messages — Telegram style: aligned right with an accent bubble. */
+.network-chat-msg.network-chat-msg-self {
+  align-items: flex-end;
+  margin-left: 48px;
+}
+
+.network-chat-msg-self .network-chat-bubble {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-dim, rgba(80, 200, 120, 0.25));
+  border-bottom-right-radius: 3px;
+}
+
+.network-chat-msg.network-chat-msg-self .network-chat-sender {
+  display: none;
+}
+
+.network-chat-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+}
+
+.network-chat-sender {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.network-chat-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.network-chat-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  align-self: flex-end;
+}
+
+.network-chat-sys {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0;
+}
+.network-chat-sys span {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 11.5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.network-chat-input {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.network-chat-field {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.network-chat-field:focus {
+  border-color: var(--accent);
+}
+
+.network-chat-field::placeholder {
+  color: var(--text-muted);
+}
+
+.network-mode-select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text, #e6e9ef);
+  font-size: 14px;
+  margin-bottom: 8px;
+  outline: none;
+}
+
+/* Internet-mode selector: three selectable cards instead of a plain dropdown */
+.network-mode-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.network-mode-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text, #e6e9ef);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.network-mode-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.network-mode-card-active {
+  border-color: var(--accent);
+  background: var(--accent-dim, rgba(74, 222, 128, 0.06));
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.network-mode-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--accent);
+}
+
+.network-mode-card-active .network-mode-card-icon {
+  background: var(--accent-soft, rgba(74, 222, 128, 0.12));
+}
+
+.network-mode-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.network-mode-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text, #e6e9ef);
+}
+
+.network-mode-card-desc {
+  font-size: 12px;
+  color: var(--text-muted, #8b93a1);
+  line-height: 1.35;
+}
+
+.network-spin {
+  animation: network-rotate 1.2s linear infinite;
+}
+
+@keyframes network-rotate {
+  to { transform: rotate(360deg); }
+}
+
+.network-manual-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.network-internet-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 180, 60, 0.12);
+  border: 1px solid rgba(255, 180, 60, 0.35);
+  color: #ffd89a;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.network-internet-banner-ok {
+  background: rgba(60, 220, 130, 0.12);
+  border-color: rgba(60, 220, 130, 0.35);
+  color: #a7f3c8;
+}
+.network-zt-installed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #a7f3c8;
+}
