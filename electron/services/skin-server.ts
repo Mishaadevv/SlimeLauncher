@@ -409,15 +409,53 @@ export class SkinServer {
       // tokens ("0") with a 204, which causes "Недействительная сессия" on
       // the connecting client.  Accept every join request so offline players
       // can connect to LAN worlds launched from this launcher.
+      // For premium (JWT) tokens we MUST proxy to Mojang so external
+      // online-mode servers can validate the session (hasJoined). Fake 204
+      // is only for offline tokens ("0") which Mojang would reject anyway.
       if (pathname === '/session/minecraft/join' && req.method === 'POST') {
-        // Read the body so the connection closes cleanly, then respond 200.
         const chunks: Buffer[] = [];
         req.on('data', (c: Buffer) => chunks.push(c));
         req.on('end', () => {
-          if (!res.headersSent) {
-            res.writeHead(204);
-            res.end();
+          if (res.headersSent) return;
+          let isPremium = false;
+          try {
+            const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            isPremium = typeof body.accessToken === 'string' && /^eyJ/.test(body.accessToken);
+          } catch { /* treat as offline */ }
+          if (isPremium) {
+            // Proxy the premium join to the real session server so Mojang
+            // records the serverId — required for hasJoined on external
+            // online-mode servers (Hypixel etc).
+            const upstreamHost = this.upstreamFor(pathname);
+            const target = `https://${upstreamHost}${pathname}${url.search}`;
+            const bodyBuf = Buffer.concat(chunks);
+            const proxyReq = https.request(
+              target,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Content-Length': bodyBuf.length,
+                  'User-Agent': 'SlimeLauncher/1.0.0',
+                  host: upstreamHost,
+                },
+              },
+              (upstream) => {
+                if (!res.headersSent) res.writeHead(upstream.statusCode || 500, upstream.headers);
+                upstream.pipe(res);
+              },
+            );
+            proxyReq.on('error', (err) => {
+              this.logger.debug('Session join proxy failed', { error: String(err) });
+              if (!res.headersSent) { res.writeHead(204); res.end(); }
+              else res.destroy();
+            });
+            proxyReq.write(bodyBuf);
+            proxyReq.end();
+            return;
           }
+          res.writeHead(204);
+          res.end();
         });
         return;
       }
@@ -428,12 +466,27 @@ export class SkinServer {
       // which prevents LAN joins.  Intercept the request and return a valid
       // profile for every player we know about (offline accounts, Microsoft
       // accounts, friends via presence, plus ely.by like TLauncher).
+      // For Microsoft (premium) accounts we proxy to Mojang first so external
+      // online-mode servers can validate the real Mojang session (otherwise
+      // "You are not logged into your Minecraft account" on Hypixel etc).
       if (pathname === '/session/minecraft/hasJoined') {
         const username = url.searchParams.get('username');
         if (username) {
           // Cache for later uuid -> nick ely.by lookups
           if (this.recentNicks.size > 200) this.recentNicks.clear();
           this.recentNicks.add(username);
+          // Microsoft accounts -> proxy to real session server
+          let isMs = false;
+          if (this.db.isReady()) {
+            try {
+              const row = this.db.prepare('SELECT 1 FROM microsoft_accounts WHERE lower(username)=lower(?)').get(username) as unknown;
+              if (row) isMs = true;
+            } catch { /* ignore */ }
+          }
+          if (isMs) {
+            this.proxy(req, res, pathname, url.search);
+            return;
+          }
           // Try sync first (fast path), then async ely.by fallback
           const profile = this.resolveHasJoined(username);
           if (profile) {

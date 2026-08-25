@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.18.2 - 2026-08-25
+
+### Исправления
+- **Лицензионные сервера `You are not logged into your Minecraft account`** (`skin-server.ts:412`): `POST /session/minecraft/join` теперь проксируется на `sessionserver.mojang.com` для JWT (`eyJ...`), а не всегда `204` — лиц. аккаунты заходят на `Hypixel` и т.п., лиц. скин в игре появился. `GET /hasJoined` для `Microsoft` тоже проксируется, для оффлайна остался фейк для LAN.
+- **JourneyMap показывает лицо, а в игре Стив** (`skin-server.ts:658`): `hostIp` выбирал `VPN 26.x` вместо `LAN 192.168.x`, текстура была недоступна второму компу. `detectLanIp()` уже prefers `192.168/10/172`, добавлено логирование `hostIp` в `Skin server started`.
+- **Миграция инстанса с `Xmn128M`** (`database.ts`): старые инстансы `91ebe2c6...` имели `jvm_args -Xmn128M` даже после `1.18.1` — пофикшено `UPDATE instances`.
+
 ## 1.18.1 - 2026-08-24
 
 ### Исправления
