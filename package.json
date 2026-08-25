@@ -1,9 +1,9 @@
 {
   "name": "slimelauncher",
-  "version": "1.18.0",
+  "version": "1.18.1",
   "description": "SlimeLauncher",
   "author": "SlimeLauncher Team",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "concurrently -k -n MAIN,RENDERER -c green,cyan \"npm:dev:main\" \"npm:dev:renderer\"",

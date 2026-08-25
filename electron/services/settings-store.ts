@@ -34,6 +34,15 @@ export class SettingsStore {
     if (!merged.recording.folder) {
       merged.recording.folder = this.defaultRecordingsDir();
     }
+    // Migrate old tiny Xmn128M default to new larger one for modded 1.16.5+ worlds
+    // (prevents sound pool 247 + light engine NPE after 30 min on heavy modpacks).
+    if (merged.jvmArguments === '-Xmn128M -XX:+UseG1GC -XX:+UnlockExperimentalVMOptions') {
+      merged.jvmArguments = DEFAULT_SETTINGS.jvmArguments;
+      // persist migrated value so next load is already correct
+      try {
+        this.db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('jvmArguments', JSON.stringify(merged.jvmArguments));
+      } catch { /* best effort */ }
+    }
     this.cache = merged;
     return merged;
   }

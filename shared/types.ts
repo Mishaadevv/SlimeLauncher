@@ -253,7 +253,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   minecraftDirectory: '',
   defaultJavaPath: '',
   defaultRamMB: 4096,
-  jvmArguments: '-Xmn128M -XX:+UseG1GC -XX:+UnlockExperimentalVMOptions',
+  jvmArguments: '-Xmn512M -XX:+UseG1GC -XX:+UnlockExperimentalVMOptions -XX:G1HeapRegionSize=16M -XX:+ParallelGCThreads=4',
   downloadThreads: 4,
   downloadLocation: '',
   autoUpdateMods: false,
