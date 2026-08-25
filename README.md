@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.18.0-4ade80?style=flat-square" />
+  <img src="https://img.shields.io/badge/version-1.18.1-4ade80?style=flat-square" />
   <img src="https://img.shields.io/badge/platform-Windows-0078D6?style=flat-square" />
   <img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square" />
   <img src="https://img.shields.io/badge/license-Proprietary-red?style=flat-square" />
@@ -21,6 +21,7 @@
   <a href="#-features">Features</a> •
   <a href="#-skins-like-tlauncher">Skins</a> •
   <a href="DOCUMENTATION.md">Full Docs</a> •
+  <a href="SKIN_CATALOG_GUIDE.md">Skin Catalog Guide</a> •
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
@@ -40,7 +41,7 @@
 ### 🚀 Quick Start
 
 **1. Download**
-Get `SlimeLauncher Setup 1.18.0.exe` from [**Releases**](https://github.com/misakolot6-netizen/SlimeLauncher/releases) → run → pick folder.
+Get `SlimeLauncher Setup 1.18.1.exe` from [**Releases**](https://github.com/misakolot6-netizen/SlimeLauncher/releases) → run → pick folder.
 
 **2. Create account**
 `Accounts` → `Add offline` → nickname with **exact CaSe** that your server expects. Or `Link Microsoft account` (needs owned Java Edition).
@@ -55,7 +56,7 @@ Get `SlimeLauncher Setup 1.18.0.exe` from [**Releases**](https://github.com/misa
 
 **Quick (SlimeLauncher peers):** `Skins` → `Offline skin` → `Upload skin` (`PNG 64×64…1024×1024`). Visible to friends who also use SlimeLauncher.
 
-**Any server:** register at **[ely.by](https://ely.by)** with **the same nickname (CaSe!)** → upload skin/cape → `SlimeLauncher 1.18+` pulls it from `skinsystem.ely.by` automatically. No settings.
+**Any server:** register at **[ely.by](https://ely.by)** with **the same nickname (CaSe!)** → upload skin/cape → `SlimeLauncher 1.18+` pulls it from `skinsystem.ely.by` automatically. Check [`SKIN_CATALOG_GUIDE.md`](SKIN_CATALOG_GUIDE.md) for details.
 
 ### 🤝 Friends & Network
 
@@ -68,13 +69,4 @@ Get `SlimeLauncher Setup 1.18.0.exe` from [**Releases**](https://github.com/misa
 npm install
 npm run build
 npx electron-builder --win --publish never
-# → release/SlimeLauncher Setup 1.18.0.exe
-```
-
-### 📄 License
-
-Copyright (c) 2026 misakolot6-netizen. All rights reserved. Modification and redistribution of modified versions are prohibited. See [`LICENSE`](LICENSE).
-
----
-
-<p align="center">Made with slime 💚 for players who love Minecraft</p>
+# → release/SlimeLauncher Setup 1.18.1.exe
