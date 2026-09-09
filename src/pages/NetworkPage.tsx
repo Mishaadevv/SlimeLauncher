@@ -5,7 +5,7 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Input } from '@/components/Input';
 import { useNotificationStore } from '@/store/notification-store';
-import type { NetworkInfo, NetworkPeer, NetworkChatMessage } from '@shared/types';
+import type { NetworkInfo, NetworkChatMessage } from '@shared/types';
 import './NetworkPage.css';
 
 function NetworkSkinHead({ skin, size = 36 }: { skin: string | null | undefined; size?: number }) {

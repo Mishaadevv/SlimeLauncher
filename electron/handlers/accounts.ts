@@ -110,7 +110,7 @@ export function registerAccountsHandlers(deps: HandlerDeps) {
   ipcMain.handle(IPC.ACCOUNTS_ADD_OFFLINE, (_e, nick: string) => {
     if (typeof nick !== 'string') return { ok: false, error: 'Nickname must be 1-24 chars (letters, numbers, _ or -).' };
     const cleanNick = nick.trim();
-    if (cleanNick.length < 1 || cleanNick.length > 24 || !/^[a-zA-Z0-9_\-]+$/.test(cleanNick)) {
+    if (cleanNick.length < 1 || cleanNick.length > 24 || !/^[a-zA-Z0-9_-]+$/.test(cleanNick)) {
       return { ok: false, error: 'Nickname must be 1-24 chars (letters, numbers, _ or -).' };
     }
     // Preserve exact case the user typed — cracked servers (AuthMe/nLogin)
@@ -173,6 +173,12 @@ export function registerAccountsHandlers(deps: HandlerDeps) {
     } else {
       return { ok: false, error: 'This account has no linked identity.' };
     }
+    // Push the switched identity to an active Network session (dynamic import
+    // avoids a module cycle); no-op when not in a network.
+    try {
+      const { updateNetworkIdentity } = await import('./network.js');
+      await updateNetworkIdentity(db);
+    } catch { /* best effort */ }
     logger.info('Account switched', { id, kind: String(row.kind) });
     return { ok: true };
   });

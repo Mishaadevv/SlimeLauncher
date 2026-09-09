@@ -48,22 +48,6 @@ export function RegisterPage() {
     }
   };
 
-  const handleOffline = async () => {
-    if (!username.trim()) return;
-    const cleanName = username.trim().replace(/[^a-zA-Z0-9_\-]/g, '');
-    if (cleanName.length < 1) {
-      add({ type: 'warning', title: t('register.invalid_username'), message: t('register.invalid_username_desc'), duration: 3000 });
-      return;
-    }
-    const res = await register(cleanName, `${cleanName}@offline.local`, 'offline');
-    if (res.ok) {
-      add({ type: 'success', title: t('register.welcome'), message: t('register.signed_in_as', { name: cleanName }), duration: 3000 });
-      navigate('home');
-    } else {
-      add({ type: 'error', title: t('register.login_failed'), message: res.error || t('register.sign_in_failed'), duration: 4000 });
-    }
-  };
-
   return (
     <div className="auth-page">
       <motion.div

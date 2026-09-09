@@ -8,9 +8,8 @@ import { IPC } from '../../shared/ipc.js';
 import type { HandlerDeps } from './types.js';
 import type { ModEntry } from '../../shared/types.js';
 import { notify } from './types.js';
+import { CF_API, cfApiKey } from '../services/cf-config.js';
 
-const CF_API = 'https://api.curseforge.com';
-const CF_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMReakwtfHbNKh6v1uTpKlzhwoueEjQnPnm';
 const CF_MINECRAFT = 432;
 
 function mrFetch(url: string): Promise<unknown> {
@@ -30,7 +29,7 @@ function mrFetch(url: string): Promise<unknown> {
 
 function cfFetch(url: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'x-api-key': CF_KEY, 'Accept': 'application/json', 'User-Agent': 'SlimeLauncher/1.0.0' } }, (res) => {
+    https.get(url, { headers: { 'x-api-key': cfApiKey(), 'Accept': 'application/json', 'User-Agent': 'SlimeLauncher/1.0.0' } }, (res) => {
       if (res.statusCode && res.statusCode >= 400) {
         res.resume();
         reject(new Error(`CurseForge API error: HTTP ${res.statusCode}`));
@@ -377,7 +376,7 @@ export function registerModHandlers(deps: HandlerDeps) {
           const filesResp = (await cfFetch(`${CF_API}/v1/mods/${modId}/files?gameId=${CF_MINECRAFT}&pageSize=50&gameVersion=${encodeURIComponent(inst.mc_version)}`)) as {
             data: Array<{ displayName: string; fileName: string; downloadUrl: string; gameVersions: string[]; releaseType: number }>;
           };
-          let files = (filesResp.data || []).filter((f) => !!f.downloadUrl && f.gameVersions?.includes(inst.mc_version));
+          const files = (filesResp.data || []).filter((f) => !!f.downloadUrl && f.gameVersions?.includes(inst.mc_version));
           const typeOrder: Record<number, number> = { 1: 0, 2: 1, 3: 2, 4: 3 };
           files.sort((a, b) => (typeOrder[a.releaseType] ?? 9) - (typeOrder[b.releaseType] ?? 9));
           const f = files[0];
@@ -389,7 +388,7 @@ export function registerModHandlers(deps: HandlerDeps) {
 
         // Download new jar first, then swap files and update the DB — a failed
         // download must never leave the old jar deleted.
-        const dlRes = await new Promise<void>((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
           const client = latest.fileUrl.startsWith('https') ? https : http;
           const doReq = (reqUrl: string) => {
             const req = client.get(reqUrl, { headers: { 'User-Agent': 'SlimeLauncher/1.0.0' } }, (res) => {
@@ -435,7 +434,18 @@ export function registerModHandlers(deps: HandlerDeps) {
         logger.info('Modrinth project raw keys', { keys: Object.keys(result || {}).join(','), projectId });
         const gallery = (result?.gallery ?? result?.images ?? result?.screenshots ?? []) as unknown[];
         logger.info('Modrinth gallery field', { type: typeof result?.gallery, val: JSON.stringify(result?.gallery)?.slice(0, 300) });
-        const screens = gallery.filter((u): u is string => typeof u === 'string').map((url) => ({ url, caption: '' }));
+        // Modrinth v2 returns objects ({url, title, description}), not strings —
+        // the old string-only filter always produced an empty gallery.
+        const screens = gallery
+          .map((g) => {
+            if (typeof g === 'string') return { url: g, caption: '' };
+            if (g && typeof g === 'object' && typeof (g as { url?: unknown }).url === 'string') {
+              const o = g as { url: string; title?: string; description?: string };
+              return { url: o.url, caption: o.title || o.description || '' };
+            }
+            return null;
+          })
+          .filter((s): s is { url: string; caption: string } => s !== null);
         logger.info('Modrinth screenshots loaded', { count: screens.length, projectId });
         return screens;
       }

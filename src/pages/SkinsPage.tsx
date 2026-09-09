@@ -63,7 +63,7 @@ export function SkinsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState<OfflineSkin | null>(null);
-  const [offlineLoading, setOfflineLoading] = useState(false);
+  const [, setOfflineLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingCape, setUploadingCape] = useState(false);
   const [msCustom, setMsCustom] = useState<{ hasSkin: boolean; hasCape: boolean; skinData: string | null; capeData: string | null; variant: string; skinWidth: number | null; skinHeight: number | null; capeWidth: number | null; capeHeight: number | null } | null>(null);

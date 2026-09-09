@@ -16,7 +16,9 @@ function rowToInstance(r: Record<string, unknown>): MinecraftInstance {
     loaderVersion: r.loader_version ? String(r.loader_version) : null,
     javaPath: r.java_path ? String(r.java_path) : null,
     ramMB: Number(r.ram_mb) || 4096,
-    jvmArgs: String(r.jvm_args),
+    // Legacy rows store NULL here — String(null) would give the literal "null"
+    // which then flew into the JVM command line as an argument.
+    jvmArgs: r.jvm_args == null ? '' : String(r.jvm_args),
     createdAt: Number(r.created_at),
     lastPlayedAt: r.last_played_at ? Number(r.last_played_at) : null,
     playCount: Number(r.play_count) || 0,
@@ -48,7 +50,9 @@ export function registerInstanceHandlers(deps: HandlerDeps) {
       loaderVersion: data.loaderVersion ?? null,
       javaPath: data.javaPath || settings.defaultJavaPath || null,
       ramMB: data.ramMB || settings.defaultRamMB,
-      jvmArgs: data.jvmArgs || settings.jvmArguments,
+      // `??` (not `||`) so clearing the field to '' actually sticks instead of
+      // silently restoring the default.
+      jvmArgs: data.jvmArgs ?? settings.jvmArguments,
       createdAt: Date.now(),
       lastPlayedAt: null,
       playCount: 0,

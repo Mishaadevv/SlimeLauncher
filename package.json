@@ -1,6 +1,6 @@
 {
   "name": "slimelauncher",
-  "version": "1.18.2",
+  "version": "1.18.3",
   "description": "SlimeLauncher",
   "author": "SlimeLauncher Team",
   "license": "SEE LICENSE IN LICENSE",
@@ -13,7 +13,7 @@
     "dist": "npm run build && electron-builder",
     "preview": "vite preview",
     "start": "npm run build && electron .",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p electron/tsconfig.json --noEmit",
     "bump": "node scripts/bump-version.mjs"
   },
@@ -33,6 +33,7 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/archiver": "^8.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.12",
@@ -45,7 +46,10 @@
     "cross-env": "^7.0.3",
     "electron": "^33.3.1",
     "electron-builder": "^25.1.8",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.69.0",
     "vite": "^6.0.7",
     "vite-plugin-electron": "^1.1.1",
     "vite-plugin-electron-renderer": "^0.14.6"
@@ -55,7 +59,7 @@
     "productName": "SlimeLauncher",
     "publish": {
       "provider": "github",
-      "owner": "SlimeLauncher-Team",
+      "owner": "Mishaadevv",
       "repo": "SlimeLauncher",
       "releaseType": "release"
     },

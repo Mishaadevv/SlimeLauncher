@@ -42,7 +42,7 @@ interface FormState {
 const EMPTY_FORM: FormState = { name: '', mcVersion: '1.20.1', loader: 'fabric', ramMB: 4096, jvmArgs: '' };
 
 export function InstancesPage() {
-  const { instances, load, create, update, remove, duplicate, select, selectedId } = useInstanceStore();
+  const { instances, create, update, remove, duplicate, select, selectedId } = useInstanceStore();
   const { settings } = useSettingsStore();
   const { add } = useNotificationStore();
   const [showCreate, setShowCreate] = useState(false);

@@ -342,7 +342,7 @@ selfNick: this.selfNick,
     this.wasConnected = false;
     this.connectFailures = [];
 
-    this.connectToHost(0);
+    this.connectToHost();
 
     return this.getInfo();
   }
@@ -350,7 +350,7 @@ selfNick: this.selfNick,
   // Tries to connect to all candidate addresses concurrently (Happy Eyeballs).
   // The first socket to connect wins; the others are destroyed. This eliminates
   // the long delay when some IPs (like VirtualBox adapters) silently drop packets.
-  private connectToHost(index: number) {
+  private connectToHost() {
     const host = this.hostInfo;
     if (!host || host.ips.length === 0) return; // left the network while connecting
     
@@ -474,7 +474,7 @@ selfNick: this.selfNick,
     } catch { /* ZeroTier not available */ }
     
     try {
-      for (const [name, list] of Object.entries(os.networkInterfaces())) {
+      for (const [, list] of Object.entries(os.networkInterfaces())) {
         for (const i of list || []) {
           if (i.family === 'IPv4' && !i.internal && i.address) {
             if (!ips.includes(i.address)) ips.push(i.address);
@@ -903,7 +903,7 @@ selfNick: this.selfNick,
 
   private handleHostMessage(peer: PeerConnection, msg: Record<string, unknown>) {
     switch (msg.type) {
-      case 'identify':
+      case 'identify': {
         peer.nick = String(msg.nick || 'Unknown');
         peer.uuid = String(msg.uuid || offlineUuid(peer.nick));
         peer.skin = (msg.skin as string) || null;
@@ -970,6 +970,7 @@ selfNick: this.selfNick,
           gamePort: null,
         });
         break;
+      }
       case 'gamePort':
         peer.gamePort = Number(msg.port) || null;
         this.emit();

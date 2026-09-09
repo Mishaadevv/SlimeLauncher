@@ -16,6 +16,9 @@ export const IPC = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
 
+  // Hardware (auto-tuned defaults)
+  SYSTEM_INFO: 'system:info',
+
   // Accounts (SlimeLauncher)
   AUTH_REGISTER: 'auth:register',
   AUTH_LOGIN: 'auth:login',
@@ -82,7 +85,6 @@ export const IPC = {
   MC_VERSIONS: 'mc:versions',
   MC_LOADER_VERSIONS: 'mc:loaderVersions',
   MC_INSTALL: 'mc:install',
-  MC_PREPARE_VERSION: 'mc:prepareVersion',
   MC_LAUNCH: 'mc:launch',
   MC_LAUNCH_PROGRESS: 'mc:launchProgress',
   MC_CONSOLE_GET_DATA: 'mc:console:getData',

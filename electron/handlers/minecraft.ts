@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow, app } from 'electron';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import https from 'node:https';
 import http from 'node:http';
@@ -8,7 +9,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { inflateRawSync } from 'node:zlib';
 import { IPC } from '../../shared/ipc.js';
 import type { HandlerDeps } from './types.js';
-import type { MinecraftInstance, LoaderType } from '../../shared/types.js';
+import type { LoaderType } from '../../shared/types.js';
 import { notify } from './types.js';
 import { refreshMsTokenIfExpired } from './microsoft.js';
 import { patchAuthlibForLocalServer, isAuthlibJar, patchClientJarForLegacySkins } from '../services/skin-patch.js';
@@ -151,7 +152,18 @@ function getRequiredJavaVersion(mcVersion: string, versionData?: { javaVersion?:
   // and only run on Java 8. Their ids mangle the numeric heuristic below.
   if (/^(rd-|inf-|c0|d0|a1|b1)/.test(mcVersion)) return { min: 8, max: 8 };
 
-  // Snapshots like 26w01a → check leading number
+  // Weekly snapshots (23w14a, 24w10a, 25w31a…) carry no usable dotted version:
+  // stripping letters turns "24w10a" into "2410", which the numeric check
+  // below would misread as a far-future release. Map the snapshot year to
+  // the Java its era needs (22–23 → 17, 24–25 → 21, 26+ → 25).
+  const snap = mcVersion.match(/^(\d+)w\d+/i);
+  if (snap) {
+    const year = parseInt(snap[1], 10);
+    if (year >= 26) return { min: 25 };
+    if (year >= 24) return { min: 21 };
+    return { min: 17 };
+  }
+
   const clean = mcVersion.replace(/[^0-9.]/g, '');
   const parts = clean.split('.').map(Number);
   const major = parts[0] ?? 0;
@@ -225,11 +237,17 @@ async function fetchJsonRetry(url: string, attempts = 3): Promise<unknown> {
   throw lastErr;
 }
 
-async function downloadFileRetry(url: string, dest: string, expectedSha1?: string, attempts = 3): Promise<void> {
+async function downloadFileRetry(
+  url: string,
+  dest: string,
+  expectedSha1?: string,
+  attempts = 3,
+  onProgress?: (downloaded: number, total: number) => void,
+): Promise<void> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
-      return await downloadFile(url, dest, expectedSha1);
+      return await downloadFile(url, dest, expectedSha1, 120000, onProgress);
     } catch (e) {
       lastErr = e;
       if (i < attempts - 1) {
@@ -430,7 +448,7 @@ function openGameConsole(instanceName: string): number | null {
     };
     getOrCreateConsoleWindow();
     return session;
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -522,6 +540,25 @@ export function registerMcHandlers(deps: HandlerDeps) {
           return { ok: false, error: `No ${inst.loader} version exists for Minecraft ${inst.mc_version}.` };
         }
       }
+      // Pre-download the Java runtime now, while the user is watching a progress
+      // bar — so the first press of Play doesn't hit a surprise 100+ MB
+      // download, or a confusing "install Java" error when that download fails
+      // on a slow connection. Non-fatal: the launch flow retries this anyway.
+      try {
+        const vJsonPath = path.join(instDir, 'versions', String(inst.mc_version), `${String(inst.mc_version)}.json`);
+        if (fs.existsSync(vJsonPath)) {
+          const vData = JSON.parse(fs.readFileSync(vJsonPath, 'utf-8')) as { javaVersion?: { majorVersion?: number } };
+          const need = getRequiredJavaVersion(String(inst.mc_version), vData);
+          sendProgress(deps, 'java', 0.92, `Checking Java ${need.min}...`);
+          const existing = await detectJava(need.min, need.max);
+          if (!existing) {
+            sendProgress(deps, 'java', 0.93, `Downloading Java ${need.min}...`);
+            await downloadJava(deps, need.min);
+          }
+        }
+      } catch (e) {
+        logger.warn('Java pre-download during install failed (will retry at launch)', { error: String(e) });
+      }
       finishInstall('completed', null);
       sendProgress(deps, 'done', 1, 'Installation complete.');
       notify(deps, { type: 'success', title: 'Instance ready', message: `${String(inst.name)} is ready to play.` });
@@ -579,6 +616,13 @@ export function registerMcHandlers(deps: HandlerDeps) {
       } catch (e) {
         return { ok: false, error: `Installation failed: ${e instanceof Error ? e.message : String(e)}` };
       }
+    }
+
+    // A loader instance without its version profile must NOT silently fall back
+    // to vanilla — that used to start the game with no mods and no explanation
+    // why. Fail loudly so the user reinstalls instead.
+    if (loader !== 'vanilla' && launchId === vanillaId) {
+      return { ok: false, error: `The ${loader} profile for Minecraft ${mcVersion} was not found — the installation is incomplete. Open the Versions page, delete this instance's ${loader} setup and install it again.` };
     }
 
     // Verify critical files exist
@@ -656,13 +700,21 @@ export function registerMcHandlers(deps: HandlerDeps) {
         if (artifact) {
           const libPath = path.join(libsDir, artifact.path);
           const exists = fs.existsSync(libPath);
-          const sha1Ok = !exists || !artifact.sha1
-            ? exists
-            : (await sha1File(libPath)).toLowerCase() === artifact.sha1.toLowerCase();
-          if (!sha1Ok) {
+          let valid = exists;
+          if (exists) {
+            if (artifact.sha1) {
+              valid = (await sha1File(libPath)).toLowerCase() === artifact.sha1.toLowerCase();
+            } else {
+              // No checksum to compare (Fabric/Quilt loader libs) — at least
+              // reject non-zip garbage (HTML error pages, partial downloads),
+              // otherwise the game classloader crashes on it.
+              valid = isZipFile(libPath);
+            }
+          }
+          if (!valid) {
             try { fs.unlinkSync(libPath); } catch { /* ignore */ }
           }
-          if (!sha1Ok || !exists) {
+          if (!valid || !exists) {
             try { await downloadFileRetry(artifact.url, libPath, artifact.sha1); } catch (e) {
               logger.warn('Library re-download failed', { lib: artifact.path, error: String(e) });
               // A required library that can't be restored would only crash the
@@ -670,6 +722,15 @@ export function registerMcHandlers(deps: HandlerDeps) {
               return {
                 ok: false,
                 error: `Failed to download required library ${artifact.path}: ${e instanceof Error ? e.message : String(e)}. Check your internet connection and try again.`,
+              };
+            }
+            // Re-verify what just landed: a 404 HTML page must never end up on
+            // the classpath masquerading as a library.
+            if (!isZipFile(libPath)) {
+              try { fs.unlinkSync(libPath); } catch { /* ignore */ }
+              return {
+                ok: false,
+                error: `Downloaded library ${artifact.path} is not a valid jar (the mirror may be down). Try again or reinstall the instance.`,
               };
             }
           }
@@ -716,6 +777,35 @@ export function registerMcHandlers(deps: HandlerDeps) {
         if (!fs.existsSync(indexPath)) {
           const indexData = await fetchJson(versionData.assetIndex.url);
           fs.writeFileSync(indexPath, JSON.stringify(indexData));
+        }
+        // Re-download missing asset objects (deleted/corrupt assets/objects
+        // used to leave the game permanently without sounds/textures — the old
+        // check only verified the index file exists).
+        try {
+          const indexData = JSON.parse(fs.readFileSync(indexPath, 'utf-8')) as {
+            objects?: Record<string, { hash: string; size: number }>;
+          };
+          const objects = Object.values(indexData.objects || {});
+          if (objects.length > 0) {
+            const objectsDir = path.join(settings.minecraftDirectory, 'assets', 'objects');
+            let missing = 0;
+            for (let i = 0; i < objects.length; i++) {
+              const hash = objects[i].hash;
+              const objPath = path.join(objectsDir, hash.substring(0, 2), hash);
+              if (!fs.existsSync(objPath)) {
+                missing++;
+                if (missing % 25 === 1) {
+                  sendProgress(deps, 'assets', 0.3 + Math.min(i / objects.length, 1) * 0.15, `Downloading assets ${i}/${objects.length}...`);
+                }
+                try {
+                  await downloadFile(`https://resources.download.minecraft.net/${hash.substring(0, 2)}/${hash}`, objPath);
+                } catch { /* keep going — one bad object must not block launch */ }
+              }
+            }
+            if (missing > 0) logger.info('Missing assets re-downloaded at launch', { missing, of: objects.length });
+          }
+        } catch (e) {
+          logger.warn('Asset object check failed (game may miss sounds/textures)', { error: String(e) });
         }
         // Materialise the legacy virtual tree for pre-1.6 versions
         if (versionData.assetIndex.id === 'pre-1.6') {
@@ -772,7 +862,7 @@ export function registerMcHandlers(deps: HandlerDeps) {
     sendProgress(deps, 'java', 0.55, `Finding Java ${javaReq.min}+...`);
     const javaPath = await findOrDownloadJava(deps, inst, settings, logger, versionData);
     if (!javaPath) {
-      return { ok: false, error: `Java ${javaReq.min}+ is required for Minecraft ${inst.mc_version}. Please install Java ${javaReq.min} or higher.` };
+      return { ok: false, error: `Java ${javaReq.min}+ is required for Minecraft ${inst.mc_version}, but the automatic download failed. Check your internet connection (api.adoptium.net must be reachable), make sure there is ~300 MB of free disk space, and that your antivirus did not block the launcher — then press Play again. Alternatively install Java ${javaReq.min}+ manually and select it in Settings → Minecraft.` };
     }
 
     // Auto-backup worlds before launch (non-blocking, best effort).
@@ -783,10 +873,26 @@ export function registerMcHandlers(deps: HandlerDeps) {
 
     // Build and launch
     sendProgress(deps, 'launching', 0.7, 'Launching Minecraft...');
-    const ramMB = Number(inst.ram_mb) || settings.defaultRamMB;
+    let ramMB = Number(inst.ram_mb) || settings.defaultRamMB;
+    // Safety clamp: never hand the JVM more than total RAM minus 1 GB for the
+    // OS. A stale 8 GB setting carried over to a 4 GB laptop used to die with
+    // an obscure "Could not reserve enough space" crash.
+    try {
+      const totalMemMB = Math.floor(os.totalmem() / 1024 / 1024);
+      const maxSafeMB = Math.max(1024, totalMemMB - 1024);
+      if (ramMB > maxSafeMB) {
+        logger.warn('RAM clamped to fit this machine', { requested: ramMB, clamped: maxSafeMB, totalMemMB });
+        ramMB = maxSafeMB;
+      }
+    } catch { /* best effort — launch with the configured value */ }
     const userJvmArgs = String(inst.jvm_args || settings.jvmArguments);
 
-    const classpath = await buildClasspath(deps, instDir, launchId, vanillaId, versionData);
+    let classpath: string[];
+    try {
+      classpath = await buildClasspath(deps, instDir, launchId, vanillaId, versionData);
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
 
     // Offline-skins "mod" for MC 1.7–1.12: authlib 1.5.x hardcodes the session
     // server URL and ignores the minecraft.api.*.host properties, so profile
@@ -1035,6 +1141,9 @@ export function registerMcHandlers(deps: HandlerDeps) {
           continue;
         }
         // Check rules if present (skip macOS-only args on Windows, etc.)
+        // Mojang semantics: rules apply in order, and a rule scoped to a
+        // different OS is skipped entirely — a `deny` for a foreign OS must
+        // NOT drop the arg (previously any `deny` killed it on all systems).
         if (jvmArg.rules) {
           let allowed = false;
           for (const rule of jvmArg.rules as Array<{ action: string; os?: { name?: string }; features?: unknown }>) {
@@ -1047,7 +1156,12 @@ export function registerMcHandlers(deps: HandlerDeps) {
               }
             }
             if (rule.action === 'deny') {
-              allowed = false;
+              if (!rule.os?.name) {
+                allowed = false;
+              } else {
+                const osMap: Record<string, string> = { 'osx': 'darwin', 'windows': 'win32', 'linux': 'linux' };
+                if (rule.os.name === osMap[process.platform]) allowed = false;
+              }
             }
           }
           if (!allowed) continue;
@@ -1062,9 +1176,9 @@ export function registerMcHandlers(deps: HandlerDeps) {
       );
     }
 
-    // Add user JVM args
+    // Add user JVM args (quote-aware: paths with spaces stay in one piece)
     if (userJvmArgs) {
-      finalJvmArgs.push(...userJvmArgs.split(' ').filter(Boolean));
+      finalJvmArgs.push(...splitJvmArgs(userJvmArgs));
     }
 
     // Build game args
@@ -1383,6 +1497,44 @@ export async function detectJava(minVersion: number = 8, maxVersion?: number): P
   return null;
 }
 
+// Extracts a downloaded Adoptium archive without a shell: argv arrays keep
+// paths with spaces or non-ASCII names (C:\Users\Миша К...\...) intact. The
+// old string-interpolated `powershell "... '${path}' ..."` / `tar -xf "..."`
+// commands broke exactly on such fresh machines, so Java never appeared and
+// the user got a "install Java manually" error.
+async function extractJavaArchive(deps: HandlerDeps, archivePath: string, destDir: string): Promise<boolean> {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const execFileAsync = promisify(execFile);
+  if (process.platform === 'win32') {
+    try {
+      const literal = (p: string) => `'${p.replace(/'/g, "''")}'`;
+      await execFileAsync(
+        'powershell',
+        ['-NoProfile', '-NonInteractive', '-Command', `Expand-Archive -LiteralPath ${literal(archivePath)} -DestinationPath ${literal(destDir)} -Force`],
+        { timeout: 180000, windowsHide: true },
+      );
+      return true;
+    } catch (e) {
+      deps.logger.warn('Expand-Archive failed, trying tar fallback', { error: String(e) });
+    }
+    try {
+      await execFileAsync('tar', ['-xf', archivePath, '-C', destDir], { timeout: 180000, windowsHide: true });
+      return true;
+    } catch (e) {
+      deps.logger.error('Both PowerShell Expand-Archive and tar failed for Java extraction', { error: String(e) });
+      return false;
+    }
+  }
+  try {
+    await execFileAsync('tar', ['-xzf', archivePath, '-C', destDir], { timeout: 180000 });
+    return true;
+  } catch (e) {
+    deps.logger.error('Java archive extraction failed', { error: String(e) });
+    return false;
+  }
+}
+
 async function downloadJava(deps: HandlerDeps, javaMajor: number): Promise<string | null> {
   const home = process.env.USERPROFILE || process.env.HOME || '';
   const runtimeDir = path.join(home, '.slimelauncher', 'runtime');
@@ -1395,12 +1547,14 @@ async function downloadJava(deps: HandlerDeps, javaMajor: number): Promise<strin
 
     // Prefer a JRE (much smaller than a JDK) since Minecraft only needs a
     // runtime; fall back to a full JDK for versions without JRE builds.
-    let assets = (await fetchJson(`${apiUrl}?image_type=jre&os=${osName}&architecture=${arch}&vendor=eclipse`)) as Array<{
-      binary: { package: { link: string; name: string; size: number }; home?: string };
+    // Retried metadata fetches: a single throttled response from Adoptium used
+    // to fail the whole first-time Java install on clean machines.
+    let assets = (await fetchJsonRetry(`${apiUrl}?image_type=jre&os=${osName}&architecture=${arch}&vendor=eclipse`)) as Array<{
+      binary: { package: { link: string; name: string; size: number; checksum?: string }; home?: string };
       version: { semver: string; major: { version: string } };
     }>;
     if (!assets || assets.length === 0) {
-      assets = (await fetchJson(`${apiUrl}?image_type=jdk&os=${osName}&architecture=${arch}&vendor=eclipse`)) as typeof assets;
+      assets = (await fetchJsonRetry(`${apiUrl}?image_type=jdk&os=${osName}&architecture=${arch}&vendor=eclipse`)) as typeof assets;
     }
     if (!assets || assets.length === 0) {
       deps.logger.error('No Adoptium assets found', { javaMajor, osName, arch });
@@ -1432,34 +1586,25 @@ async function downloadJava(deps: HandlerDeps, javaMajor: number): Promise<strin
 
     if (!fs.existsSync(archivePath)) {
       const totalBytes = jdk.binary.package.size || 0;
-      await downloadFile(
+      await downloadFileRetry(
         jdk.binary.package.link,
         archivePath,
-        undefined,
-        120000,
-        (received) => {
+        jdk.binary.package.checksum,
+        3,
+        (received: number) => {
           const frac = totalBytes > 0 ? received / totalBytes : 0;
           sendProgress(deps, 'java', 0.57 + Math.min(frac, 1) * 0.05, `Downloading Java ${javaMajor} — ${Math.round(frac * 100)}%`);
-        }
+        },
       );
     }
 
     sendProgress(deps, 'java', 0.6, 'Extracting Java...');
-    if (process.platform === 'win32') {
-      const { execSync } = await import('node:child_process');
-      try {
-        execSync(`powershell -NoProfile -Command "Expand-Archive -Path '${archivePath}' -DestinationPath '${runtimeDir}' -Force"`, { timeout: 180000 });
-      } catch {
-        // Fallback: use tar if PowerShell extraction fails
-        try {
-          execSync(`tar -xf "${archivePath}" -C "${runtimeDir}"`, { timeout: 180000 });
-        } catch {
-          deps.logger.error('Both PowerShell Expand-Archive and tar failed for Java extraction');
-        }
-      }
-    } else {
-      const { execSync } = await import('node:child_process');
-      execSync(`tar -xzf "${archivePath}" -C "${runtimeDir}"`, { timeout: 180000 });
+    const extracted = await extractJavaArchive(deps, archivePath, runtimeDir);
+    if (!extracted) {
+      // A broken archive would fail identically on every retry — delete it so
+      // the next launch re-downloads instead of reusing the corrupt file.
+      try { fs.unlinkSync(archivePath); } catch { /* ignore */ }
+      deps.logger.error('Java archive extraction failed, archive removed for retry', { archivePath });
     }
 
     // Check expected extracted dir first (binary.home), then scan all jdk* dirs
@@ -1496,11 +1641,19 @@ async function downloadJava(deps: HandlerDeps, javaMajor: number): Promise<strin
         }
       }
     }
+    deps.logger.error(
+      'Java download/extract did not yield a working java binary',
+      { javaMajor, expectedPath: javaExe, runtimeDir, runtimeContents: safeReaddir(runtimeDir) }
+    );
   } catch (e) {
     deps.logger.error('Java download failed', { error: String(e), javaMajor });
   }
 
   return null;
+}
+
+function safeReaddir(dir: string): string[] {
+  try { return fs.readdirSync(dir); } catch { return []; }
 }
 
 // Captures the game's stdout/stderr while it runs. When a live console session
@@ -1664,6 +1817,24 @@ function dashUuid(uuid: string): string {
   const clean = String(uuid).replace(/-/g, '');
   if (clean.length !== 32) return String(uuid);
   return `${clean.slice(0, 8)}-${clean.slice(8, 12)}-${clean.slice(12, 16)}-${clean.slice(16, 20)}-${clean.slice(20)}`;
+}
+
+// Splits user-typed JVM args honoring double quotes, so values with spaces
+// survive as one argument: `-Dpath="C:\My Games\dir" -Xmx2G` → two args, not three.
+function splitJvmArgs(raw: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let quote = false;
+  for (const ch of raw) {
+    if (ch === '"') { quote = !quote; continue; }
+    if (!quote && /\s/.test(ch)) {
+      if (cur) { out.push(cur); cur = ''; }
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur) out.push(cur);
+  return out;
 }
 
 // Old-style (pre-1.13) versions declare game args as a flat string, e.g.
@@ -1930,7 +2101,11 @@ async function installLoader(deps: HandlerDeps, loader: LoaderType, mcVersion: s
   } else if (loader === 'forge' || loader === 'neoforge') {
     const base = loader === 'forge' ? FORGE_MAVEN : NEOFORGE_MAVEN;
     const installerUrl = `${base}/${mcVersion}-${loaderVersion}/${loader === 'forge' ? 'forge' : 'neoforge'}-${mcVersion}-${loaderVersion}-installer.jar`;
-    const installerPath = path.join(instDir, `${loader}-installer.jar`);
+    // Versioned file name: the old fixed `forge-installer.jar` was reused when
+    // the user switched loader versions, silently installing the stale one.
+    const installerPath = path.join(instDir, `${loader}-installer-${mcVersion}-${loaderVersion}.jar`);
+    // Best-effort cleanup of the legacy fixed-name installer from older versions.
+    try { fs.unlinkSync(path.join(instDir, `${loader}-installer.jar`)); } catch { /* ignore */ }
     if (!fs.existsSync(installerPath)) {
       await downloadFile(installerUrl, installerPath);
     }
@@ -1965,16 +2140,27 @@ async function installLoader(deps: HandlerDeps, loader: LoaderType, mcVersion: s
     }
     // Run the installer with a suitable Java: prefer the version the game
     // itself needs, then fall back to any Java 8+ (the installer runs fine on
-    // Java 8 even for modern versions).
+    // Java 8 even for modern versions). On a clean machine with no Java at
+    // all, download the needed runtime instead of failing — same auto-download
+    // the vanilla launch uses.
     const javaReq = getRequiredJavaVersion(mcVersion);
-    const javaPath =
+    let javaPath =
       (await detectJava(javaReq.min)) ||
       (await detectJava(17)) ||
       (await detectJava(8));
     if (!javaPath) {
-      throw new Error('Java is required to run the Forge/NeoForge installer. Install any Java 8+.');
+      sendProgress(deps, 'loader', 0.62, `Java ${javaReq.min} not found — downloading automatically...`);
+      try {
+        const downloaded = await downloadJava(deps, javaReq.min);
+        if (downloaded) javaPath = downloaded;
+      } catch (e) {
+        deps.logger.warn('Java auto-download for installer failed', { error: String(e) });
+      }
+      if (!javaPath) javaPath = (await detectJava(17)) || (await detectJava(8));
     }
-    const { spawn } = await import('node:child_process');
+    if (!javaPath) {
+      throw new Error(`Java ${javaReq.min} is required to install ${loader} for Minecraft ${mcVersion}, but the automatic download failed. Check your internet connection and try again.`);
+    }
     // Modern installers accept --installClient; older ones used --installDir.
     // Try each until one succeeds. The installer downloads ~80 MB of client
     // jar plus libraries, so run it with a live progress pulse — otherwise the
@@ -2271,6 +2457,7 @@ async function buildClasspath(
   const libsDir = path.join(instDir, 'libraries');
   const libs: string[] = [fs.existsSync(jar) ? jar : fallbackJar];
   const seen = new Set<string>();
+  const missing: string[] = [];
 
   for (const lib of versionData.libraries || []) {
     let rel: string | undefined;
@@ -2292,7 +2479,24 @@ async function buildClasspath(
     if (fs.existsSync(full) && !seen.has(full)) {
       seen.add(full);
       libs.push(full);
+      continue;
     }
+    if (seen.has(full)) continue;
+    // A declared library that's still missing here means the launch-time
+    // repair above couldn't restore it. Dropping it silently used to explode
+    // later as a cryptic ClassNotFound/NoClassDefFound crash inside the game —
+    // fail fast with the file name instead. Old-format maven-base entries stay
+    // best-effort (some legitimately 404 on ancient versions).
+    if (lib.downloads?.artifact) {
+      missing.push(rel);
+    } else {
+      deps.logger.warn('Optional library missing from classpath', { lib: lib.name || rel });
+    }
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required libraries (${missing.length}): ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ', …' : ''}. Reinstall the instance, check your internet connection and try again.`
+    );
   }
   return libs;
 }

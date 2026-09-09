@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { MinecraftInstance, LoaderType } from '@shared/types';
+import type { MinecraftInstance } from '@shared/types';
 import { useNotificationStore } from './notification-store';
 
 // Shows an error toast and returns a short message. Keeps the stores free of

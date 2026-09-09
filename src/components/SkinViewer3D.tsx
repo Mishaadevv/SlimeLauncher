@@ -423,7 +423,6 @@ function makeDefaultSkin(variant: 'classic' | 'slim'): HTMLCanvasElement {
   g.clearRect(0, 0, 64, 64);
 
   const SKIN = '#c68642';
-  const SKIN_DARK = '#a96f34';
   const HAIR = '#3f2a1a';
   const SHIRT = '#00afaf';
   const SHIRT_DARK = '#009999';

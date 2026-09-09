@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS, type AppSettings } from '../../shared/types.js';
 import type { DatabaseService } from './database.js';
+import { getHardwareInfo } from './hardware.js';
 
 // Settings persisted in the SQLite `settings` table as key/value JSON.
 // Falls back to DEFAULT_SETTINGS for any missing key.
@@ -13,6 +14,7 @@ export class SettingsStore {
 
   load(): AppSettings {
     const rows = this.db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
+    const storedKeys = new Set(rows.map((r) => r.key));
     const merged = { ...DEFAULT_SETTINGS };
     for (const row of rows) {
       try {
@@ -33,6 +35,16 @@ export class SettingsStore {
     merged.recording = { ...DEFAULT_SETTINGS.recording, ...merged.recording };
     if (!merged.recording.folder) {
       merged.recording.folder = this.defaultRecordingsDir();
+    }
+    // Auto-tune the default RAM to the actual hardware — but only when the user
+    // never set it explicitly (no stored row). Fresh installs get a sane heap
+    // for their machine with zero clicks; custom values are never touched.
+    // Existing instances keep their own per-instance ram_mb regardless.
+    if (!storedKeys.has('defaultRamMB')) {
+      merged.defaultRamMB = getHardwareInfo().recommendedRamMB;
+      try {
+        this.db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('defaultRamMB', JSON.stringify(merged.defaultRamMB));
+      } catch { /* best effort */ }
     }
     // Migrate old tiny Xmn128M default to new larger one for modded 1.16.5+ worlds
     // (prevents sound pool 247 + light engine NPE after 30 min on heavy modpacks).

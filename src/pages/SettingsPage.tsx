@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings as SettingsIcon, Palette, Sparkles, Gamepad2, Download, User, Terminal, Globe, FolderOpen, Link2, Unlink, HardDrive,
@@ -35,6 +35,18 @@ export function SettingsPage() {
   const { navigate } = useNavigationStore();
   const [section, setSection] = useState<SectionId>('general');
   const [linkingMs, setLinkingMs] = useState(false);
+  const [hwInfo, setHwInfo] = useState<{ totalMemMB: number; recommendedRamMB: number } | null>(null);
+
+  // Hardware summary for the Minecraft section (display only — the default RAM
+  // itself is auto-tuned in the main process, no button needed).
+  useEffect(() => {
+    if (section !== 'minecraft') return;
+    let cancelled = false;
+    window.slime.system.info()
+      .then((info) => { if (!cancelled && info) setHwInfo(info); })
+      .catch(() => { /* info line stays hidden */ });
+    return () => { cancelled = true; };
+  }, [section]);
 
   const handleLinkMs = async () => {
     setLinkingMs(true);
@@ -73,7 +85,12 @@ export function SettingsPage() {
   };
 
   const pickJava = async () => {
-    const file = await window.slime.fs.selectFile([{ name: 'Java executable', extensions: ['exe'] }]);
+    // The .exe filter only makes sense on Windows — on Linux/macOS the binary
+    // is just called `java` with no extension, so show all files there.
+    const isWindows = /win/i.test(navigator.userAgent);
+    const file = await window.slime.fs.selectFile(
+      isWindows ? [{ name: 'Java executable', extensions: ['exe'] }] : [],
+    );
     if (file) set({ defaultJavaPath: file });
   };
 
@@ -375,12 +392,30 @@ export function SettingsPage() {
                   <Button variant="secondary" size="sm" icon={<FolderOpen size={14} />} onClick={pickJava}>
                     {t('settings.browse')}
                   </Button>
+                  {!!settings.defaultJavaPath && (
+                    <Button variant="ghost" size="sm" onClick={() => set({ defaultJavaPath: '' })}>
+                      Auto
+                    </Button>
+                  )}
                 </div>
               </div>
               <div className="setting-row">
                 <div>
                   <div className="setting-label">{t('settings.ram')}</div>
-                  <div className="setting-desc">{t('settings.ram_desc')}</div>
+                  <div className="setting-desc">
+                    {t('settings.ram_desc')}
+                    {hwInfo && (
+                      <>
+                        <br />
+                        <span style={{ opacity: 0.85 }}>
+                          {t('settings.ram_auto', {
+                            mem: hwInfo.totalMemMB >= 1024 ? `${Math.round(hwInfo.totalMemMB / 1024)} GB RAM` : `${hwInfo.totalMemMB} MB RAM`,
+                            rec: hwInfo.recommendedRamMB >= 1024 ? `${Math.round(hwInfo.recommendedRamMB / 1024)} GB` : `${hwInfo.recommendedRamMB} MB`,
+                          })}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <Input
                   type="number"

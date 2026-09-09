@@ -267,7 +267,7 @@ export function RecordingsPage() {
       void loadStats();
     });
     return () => { unsub(); unsubShot(); };
-  }, [add, loadEntries, loadShots, loadStats, loadStatus, loadFfmpeg]);
+  }, [add, loadEntries, loadShots, loadStats, loadStatus, loadFfmpeg, loadAudioDevices]);
 
   // Tick for the live timer
   useEffect(() => {

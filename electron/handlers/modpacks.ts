@@ -9,16 +9,14 @@ import { IPC } from '../../shared/ipc.js';
 import type { HandlerDeps } from './types.js';
 import { notify } from './types.js';
 import type { LoaderType } from '../../shared/types.js';
-
-const CF_API = 'https://api.curseforge.com';
-const CF_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMReakwtfHbNKh6v1uTpKlzhwoueEjQnPnm';
+import { CF_API, cfApiKey } from '../services/cf-config.js';
 
 function cfFetch(url: string, method = 'GET', body?: unknown): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const req = https.request(url, {
       method,
       headers: {
-        'x-api-key': CF_KEY,
+        'x-api-key': cfApiKey(),
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'User-Agent': 'SlimeLauncher/1.0.0',
@@ -37,6 +35,15 @@ function cfFetch(url: string, method = 'GET', body?: unknown): Promise<unknown> 
     if (body) req.write(JSON.stringify(body));
     req.end();
   });
+}
+
+// Modpack manifests are untrusted input: reject absolute paths and `..`
+// escapes so a malicious .mrpack can't write outside the instance folder.
+function sanitizeModpackPath(rel: string): string | null {
+  if (!rel || path.isAbsolute(rel)) return null;
+  const norm = path.normalize(rel);
+  if (norm === '..' || norm.startsWith(`..${path.sep}`) || path.isAbsolute(norm)) return null;
+  return norm;
 }
 
 function downloadFile(url: string, dest: string): Promise<void> {
@@ -162,7 +169,11 @@ export function registerModpackHandlers(deps: HandlerDeps) {
         
         for (const file of idx.files || []) {
           if (!file.downloads || !file.downloads[0]) continue;
-          const relPath = file.path; // e.g. "mods/sodium.jar"
+          const relPath = sanitizeModpackPath(String(file.path || ''));
+          if (!relPath) {
+            deps.logger.warn('Skipping modpack file with unsafe path', { path: String(file.path || '') });
+            continue;
+          }
           filesToDownload.push({
             url: file.downloads[0],
             dest: path.join(instDir, relPath),
@@ -201,12 +212,15 @@ export function registerModpackHandlers(deps: HandlerDeps) {
             let skippedCount = 0;
             for (const f of resp.data || []) {
               if (f.downloadUrl) {
+                // fileName comes from the network — take only the basename so a
+                // hostile name can't escape the mods folder.
+                const safeName = path.basename(String(f.fileName || 'mod.jar'));
                 // CF puts mods in "mods/" by default
                 filesToDownload.push({
                   url: f.downloadUrl,
-                  dest: path.join(instDir, 'mods', f.fileName),
-                  name: f.displayName || f.fileName,
-                  slug: f.fileName.replace('.jar', ''),
+                  dest: path.join(instDir, 'mods', safeName),
+                  name: f.displayName || safeName,
+                  slug: safeName.replace('.jar', ''),
                   author: 'CurseForge',
                 });
               } else {

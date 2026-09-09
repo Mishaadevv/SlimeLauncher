@@ -30,6 +30,8 @@ function escapeHtml(s: string): string {
 function renderAnsi(line: string): string {
   const esc = escapeHtml(line);
   return esc.replace(
+    // ANSI escape sequences are exactly what this function exists to parse.
+    // eslint-disable-next-line no-control-regex
     /\x1b\[([0-9;]*)m/g,
     (_, codes: string) => {
       const parts = codes.split(';').map((c: string) => Number(c) || 0);

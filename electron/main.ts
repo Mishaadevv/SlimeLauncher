@@ -49,6 +49,7 @@ import { DiscordRpcService } from './services/discord-rpc.js';
 import type { PresenceSnapshot } from '../shared/types.js';
 import { Logger } from './services/logger.js';
 import { autoUpdater } from 'electron-updater';
+import { cfApiKey, isForgeCdnHost } from './services/cf-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -144,9 +145,28 @@ function createMainWindow(): BrowserWindow {
     logger.error('Main window failed to load', { errorCode, errorDescription, validatedURL });
   });
 
-  win.webContents.on('console-message', (_e, level, message, line, sourceId) => {
-    if (level >= 2) {
-      logger.error('Renderer console error', { message, line, sourceId });
+  win.webContents.on('console-message', (event, level, message, lineNumber, sourceId) => {
+    // Electron >=32 exposes these fields on the event object (as strings) and
+    // deprecates the positional arguments; older versions pass them as
+    // numbers. Read whichever shape the runtime provides so renderer error
+    // logging keeps working across Electron upgrades.
+    const params = event as unknown as {
+      level?: string | number;
+      message?: string;
+      lineNumber?: number;
+      sourceId?: string;
+    };
+    const lvl = params.level ?? level;
+    const msg = params.message ?? message;
+    const line = params.lineNumber ?? lineNumber;
+    const src = params.sourceId ?? sourceId;
+    const isError = lvl === 'error' || lvl === 'warning' || (typeof lvl === 'number' && lvl >= 2);
+    if (isError) {
+      logger.error('Renderer console error', {
+        message: String(msg ?? ''),
+        line: line ?? undefined,
+        sourceId: src ?? undefined,
+      });
     }
   });
 
@@ -333,15 +353,18 @@ app.whenReady().then(() => {
   // Register a custom protocol to proxy CurseForge CDN images with the API key.
   // CurseForge blocks direct browser requests to mediafilez.forgecdn.net without
   // the x-api-key header, so the renderer uses cfimg://<encoded-url> instead.
+  // Only forgecdn.net hosts may be fetched — anything else would make this an
+  // open proxy that sends the launcher's API key to arbitrary third parties.
   protocol.handle('cfimg', async (req) => {
-    const raw = decodeURIComponent(req.url.slice('cfimg://'.length));
     try {
-      const resp = await fetch(raw, {
-        headers: {
-          'x-api-key': '$2a$10$bL4bIL5pUWqfcO7KQtnMReakwtfHbNKh6v1uTpKlzhwoueEjQnPnm',
-          'User-Agent': 'SlimeLauncher/1.0.0',
-        },
-      });
+      const raw = decodeURIComponent(req.url.slice('cfimg://'.length));
+      const target = new URL(raw);
+      if (target.protocol !== 'https:' && target.protocol !== 'http:') return new Response(null, { status: 400 });
+      if (!isForgeCdnHost(target.hostname)) return new Response(null, { status: 403 });
+      const headers: Record<string, string> = { 'User-Agent': 'SlimeLauncher/1.0.0' };
+      const key = cfApiKey();
+      if (key) headers['x-api-key'] = key;
+      const resp = await fetch(target.toString(), { headers });
       if (!resp.ok) return new Response(null, { status: resp.status });
       const buf = await resp.arrayBuffer();
       const ct = resp.headers.get('content-type') || 'image/jpeg';
@@ -351,19 +374,28 @@ app.whenReady().then(() => {
     }
   });
 
+  // local://<absolute-path> lets the renderer display local media (custom
+  // background images, recordings). Only known image/video files may be read:
+  // serving raw bytes of arbitrary paths (which the renderer controls) would
+  // turn this into a full arbitrary-file reader if the UI were ever
+  // compromised.
   protocol.handle('local', async (req) => {
     const p = decodeURIComponent(req.url.slice('local://'.length));
     try {
       const stat = fs.statSync(p);
       if (!stat.isFile()) return new Response(null, { status: 404 });
+      const lower = p.toLowerCase();
+      let ct: string | null = null;
+      if (lower.endsWith('.png')) ct = 'image/png';
+      else if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) ct = 'image/jpeg';
+      else if (lower.endsWith('.gif')) ct = 'image/gif';
+      else if (lower.endsWith('.webp')) ct = 'image/webp';
+      else if (lower.endsWith('.mp4')) ct = 'video/mp4';
+      else if (lower.endsWith('.webm')) ct = 'video/webm';
+      if (!ct) return new Response(null, { status: 403 });
+      // Cap at 512 MB so an accidental huge path can't exhaust main-process memory.
+      if (stat.size > 512 * 1024 * 1024) return new Response(null, { status: 413 });
       const buf = fs.readFileSync(p);
-      let ct = 'application/octet-stream';
-      if (p.endsWith('.png')) ct = 'image/png';
-      else if (p.endsWith('.jpg') || p.endsWith('.jpeg')) ct = 'image/jpeg';
-      else if (p.endsWith('.gif')) ct = 'image/gif';
-      else if (p.endsWith('.webp')) ct = 'image/webp';
-      else if (p.endsWith('.mp4')) ct = 'video/mp4';
-      else if (p.endsWith('.webm')) ct = 'video/webm';
       return new Response(buf, { headers: { 'Content-Type': ct } });
     } catch {
       return new Response(null, { status: 404 });
@@ -376,7 +408,7 @@ app.whenReady().then(() => {
   downloadManager.resumePending();
   skinServer.start();
   createSplash();
-  const win = createMainWindow();
+  createMainWindow();
 
   const possibleIcons = [
     path.join(__dirname, '../ico.ico.png'),

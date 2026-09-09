@@ -23,6 +23,9 @@ const api = {
     get: () => ipcRenderer.invoke(IPC.SETTINGS_GET),
     set: (patch: Record<string, unknown>) => ipcRenderer.invoke(IPC.SETTINGS_SET, patch),
   },
+  system: {
+    info: () => ipcRenderer.invoke(IPC.SYSTEM_INFO),
+  },
   auth: {
     register: (username: string, email: string, password: string) =>
       ipcRenderer.invoke(IPC.AUTH_REGISTER, username, email, password),

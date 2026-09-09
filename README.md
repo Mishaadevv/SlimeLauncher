@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.18.1-4ade80?style=flat-square" />
+  <img src="https://img.shields.io/badge/version-1.18.3-4ade80?style=flat-square" />
   <img src="https://img.shields.io/badge/platform-Windows-0078D6?style=flat-square" />
   <img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square" />
   <img src="https://img.shields.io/badge/license-Proprietary-red?style=flat-square" />
@@ -41,7 +41,7 @@
 ### 🚀 Quick Start
 
 **1. Download**
-Get `SlimeLauncher Setup 1.18.1.exe` from [**Releases**](https://github.com/misakolot6-netizen/SlimeLauncher/releases) → run → pick folder.
+Get `SlimeLauncher Setup 1.18.3.exe` from [**Releases**](https://github.com/Mishaadevv/SlimeLauncher/releases) → run → pick folder.
 
 **2. Create account**
 `Accounts` → `Add offline` → nickname with **exact CaSe** that your server expects. Or `Link Microsoft account` (needs owned Java Edition).
@@ -69,4 +69,4 @@ Get `SlimeLauncher Setup 1.18.1.exe` from [**Releases**](https://github.com/misa
 npm install
 npm run build
 npx electron-builder --win --publish never
-# → release/SlimeLauncher Setup 1.18.1.exe
+# → release/SlimeLauncher Setup 1.18.3.exe

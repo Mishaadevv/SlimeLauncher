@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Download, Star, User as UserIcon, Package, X, Check, FolderOpen } from 'lucide-react';
+import { Search, Download, Star, User as UserIcon, Package, X } from 'lucide-react';
 import { useInstanceStore } from '@/store/instance-store';
 import { useNotificationStore } from '@/store/notification-store';
 import { useSettingsStore } from '@/store/settings-store';
@@ -47,7 +47,7 @@ export function ModpacksPage() {
   const [source, setSource] = useState<ModSource>('curseforge');
   const [mods, setMods] = useState<ModCard[]>([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
+  const [, setPage] = useState(0);
   const pageRef = useRef(0);
   const [hasMore, setHasMore] = useState(true);
   const [installing, setInstalling] = useState<string | null>(null);
@@ -70,7 +70,7 @@ export function ModpacksPage() {
   
   useEffect(() => {
     if (selectedInstance?.mcVersion) setGameVersion(selectedInstance.mcVersion);
-  }, [selectedInstance?.id]);
+  }, [selectedInstance?.mcVersion]);
 
   const doSearch = useCallback(async (reset = false) => {
     const gen = ++searchGenRef.current;
@@ -348,7 +348,6 @@ export function ModpacksPage() {
                 ) : (
                   <div className="mod-versions-list">
                     {versions.slice(0, 8).map((v) => {
-                      const file = v.files.find((f) => f.primary) || v.files[0];
                       return (
                         <div key={v.id} className="mod-version-row">
                           <div>

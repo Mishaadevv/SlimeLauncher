@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Download, Star, User as UserIcon, Package, X, Check, Trash2, FolderOpen, RefreshCw, Image } from 'lucide-react';
+import { Search, Download, Star, User as UserIcon, Package, X, Check, Trash2, FolderOpen, RefreshCw } from 'lucide-react';
 import { useInstanceStore } from '@/store/instance-store';
 import { useNotificationStore } from '@/store/notification-store';
 import { useSettingsStore } from '@/store/settings-store';
@@ -48,7 +48,7 @@ export function ModsPage() {
   const [source, setSource] = useState<ModSource>('curseforge');
   const [mods, setMods] = useState<ModCard[]>([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
+  const [, setPage] = useState(0);
   const pageRef = useRef(0);
   const [hasMore, setHasMore] = useState(true);
   const [installing, setInstalling] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export function ModsPage() {
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [screenshots, setScreenshots] = useState<Array<{ url: string; caption: string }>>([]);
   const [screenshotsLoading, setScreenshotsLoading] = useState(false);
-  const [screenshotsPage, setScreenshotsPage] = useState(0);
+  const [, setScreenshotsPage] = useState(0);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const searchGenRef = useRef(0);
   const [installedSlugs, setInstalledSlugs] = useState<Set<string>>(new Set());
@@ -80,7 +80,7 @@ export function ModsPage() {
   }, [selectedInstance?.mcVersion]);
   useEffect(() => {
     if (selectedInstance?.mcVersion) setGameVersion(selectedInstance.mcVersion);
-  }, [selectedInstance?.id]);
+  }, [selectedInstance?.mcVersion]);
 
   const loadInstalled = useCallback(async () => {
     if (!selectedInstance) { setInstalledMods([]); setInstalledSlugs(new Set()); return; }
@@ -539,7 +539,6 @@ export function ModsPage() {
                 ) : (
                   <div className="mod-versions-list">
                     {versions.slice(0, 8).map((v) => {
-                      const file = v.files.find((f) => f.primary) || v.files[0];
                       return (
                         <div key={v.id} className="mod-version-row">
                           <div>

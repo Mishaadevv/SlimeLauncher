@@ -23,7 +23,7 @@ export function LoginPage() {
       add({ type: 'warning', title: 'Enter a username', message: 'Please enter a display name.', duration: 3000 });
       return;
     }
-    const cleanName = username.trim().replace(/[^a-zA-Z0-9_\-]/g, '');
+    const cleanName = username.trim().replace(/[^a-zA-Z0-9_-]/g, '');
     if (cleanName.length < 1) {
       add({ type: 'warning', title: 'Invalid username', message: 'Use letters, numbers, _ or -', duration: 3000 });
       return;

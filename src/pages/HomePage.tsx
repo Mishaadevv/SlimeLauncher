@@ -1,8 +1,7 @@
 import { motion } from 'framer-motion';
-import { Play, Settings as SettingsIcon, Bell, User, Boxes, Puzzle, Map as MapIcon, Cpu, MemoryStick, FolderOpen, Wrench, Gamepad2, AlertTriangle, X } from 'lucide-react';
+import { Play, Settings as SettingsIcon, User, Boxes, Puzzle, Map as MapIcon, Cpu, MemoryStick, FolderOpen, Wrench, Gamepad2, AlertTriangle, X } from 'lucide-react';
 import { useInstanceStore } from '@/store/instance-store';
 import { useAuthStore } from '@/store/auth-store';
-import { useSettingsStore } from '@/store/settings-store';
 import { useNavigationStore } from '@/store/navigation-store';
 import { useNotificationStore } from '@/store/notification-store';
 import { AppIcon } from '@/components/AppIcon';
@@ -37,7 +36,6 @@ function formatEta(seconds: number): string {
 export function HomePage() {
   const { instances, selectedId, loading, select } = useInstanceStore();
   const { user, activeMicrosoft } = useAuthStore();
-  const { settings } = useSettingsStore();
   const { navigate } = useNavigationStore();
   const { add } = useNotificationStore();
   const [launching, setLaunching] = useState(false);

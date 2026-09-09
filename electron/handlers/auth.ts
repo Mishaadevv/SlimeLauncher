@@ -29,7 +29,7 @@ function validateEmail(email: string): boolean {
 }
 
 function validateUsername(name: string): boolean {
-  return typeof name === 'string' && name.length >= 1 && name.length <= 24 && /^[a-zA-Z0-9_\-]+$/.test(name);
+  return typeof name === 'string' && name.length >= 1 && name.length <= 24 && /^[a-zA-Z0-9_-]+$/.test(name);
 }
 
 export function registerAuthHandlers(deps: HandlerDeps) {
@@ -133,6 +133,19 @@ export function registerAuthHandlers(deps: HandlerDeps) {
       const clash = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(patch.username, current.id);
       if (clash) return { ok: false, error: 'Username already taken.' };
       db.prepare('UPDATE users SET username = ? WHERE id = ?').run(patch.username, current.id);
+      // Propagate the rename: the Accounts list (saved_accounts.nick) and the
+      // offline skin key (offline_skins.username) are nick-based, so without
+      // this the list keeps showing the stale name and the skin "disappears".
+      // Guarded so a skin-key collision can never fail the rename itself.
+      try {
+        db.prepare('UPDATE saved_accounts SET nick = ? WHERE user_id = ?').run(patch.username, current.id);
+        const lowerSame = patch.username.toLowerCase() === current.username.toLowerCase();
+        const targetTaken = db.prepare('SELECT 1 AS one FROM offline_skins WHERE lower(username) = lower(?)').get(patch.username) as unknown;
+        if (lowerSame || !targetTaken) {
+          db.prepare('UPDATE offline_skins SET username = ?, updated_at = ? WHERE lower(username) = lower(?)')
+            .run(patch.username, Date.now(), current.username);
+        }
+      } catch { /* cosmetic propagation — the rename itself already succeeded */ }
     }
     if (patch.avatar !== undefined) {
       db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(patch.avatar, current.id);

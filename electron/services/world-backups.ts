@@ -166,7 +166,6 @@ export class WorldBackupsService {
     try {
       const { ZipArchive } = await import('archiver');
       const output = fs.createWriteStream(destZip);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const archive = new (ZipArchive as unknown as new (opts?: unknown) => any)({ zlib: { level: 6 } });
       return await new Promise((resolve, reject) => {
         output.on('close', () => resolve());
@@ -197,10 +196,8 @@ export class WorldBackupsService {
       const yauzl = await import('yauzl');
       // yauzl is callback-based; use it if available.
       await new Promise<void>((resolve, reject) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (yauzl as unknown as { open: (p: string, o: unknown, cb: (e: unknown, z: unknown) => void) => void }).open(zipPath, { lazyEntries: true }, (err: unknown, zip: unknown) => {
           if (err || !zip) return reject(err);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const z = zip as any;
           z.readEntry();
           z.on('entry', (entry: { fileName: string; isDirectory?: () => boolean }) => {
@@ -212,7 +209,6 @@ export class WorldBackupsService {
               fs.mkdirSync(path.dirname(full), { recursive: true });
               z.openReadStream(entry, (e: unknown, s: unknown) => {
                 if (e || !s) return reject(e);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const rs = s as any;
                 const ws = fs.createWriteStream(full);
                 rs.pipe(ws);

@@ -407,7 +407,6 @@ export class PresenceService {
         const buf = Buffer.from(row.skin_data, 'base64');
         const dims = pngDimensions(buf);
         if (dims && (dims.width > 64 || dims.height > 64)) {
-          const targetH = dims.width !== dims.height || variant === 'slim' ? 64 : 64;
           // Classic 64x64, legacy 64x32 is 2:1 so height 32 but we use 64 for safety; resizePng handles both.
           const isLegacy = dims.width !== dims.height;
           const resized = resizePng(buf, 64, isLegacy ? 32 : 64);

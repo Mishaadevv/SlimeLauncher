@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import https from 'node:https';
-import http from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
@@ -11,14 +10,13 @@ import { IPC } from '../../shared/ipc.js';
 import type { HandlerDeps } from './types.js';
 import type { MapEntry } from '../../shared/types.js';
 import { notify } from './types.js';
+import { CF_API, cfApiKey } from '../services/cf-config.js';
 
-const CF_API = 'https://api.curseforge.com';
-const CF_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMReakwtfHbNKh6v1uTpKlzhwoueEjQnPnm';
 const CF_MINECRAFT = 432; // classId for Minecraft
 
 function cfFetch(url: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'x-api-key': CF_KEY, 'Accept': 'application/json', 'User-Agent': 'SlimeLauncher/1.0.0' } }, (res) => {
+    https.get(url, { headers: { 'x-api-key': cfApiKey(), 'Accept': 'application/json', 'User-Agent': 'SlimeLauncher/1.0.0' } }, (res) => {
       if (res.statusCode && res.statusCode >= 400) {
         res.resume();
         reject(new Error(`CurseForge API error: HTTP ${res.statusCode}`));
@@ -28,30 +26,6 @@ function cfFetch(url: string): Promise<unknown> {
       res.on('data', (c) => (data += c));
       res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
     }).on('error', reject);
-  });
-}
-
-function downloadFile(url: string, dest: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    fs.mkdirSync(path.dirname(dest), { recursive: true });
-    const doReq = (reqUrl: string) => {
-      const c = reqUrl.startsWith('https') ? https : http;
-      c.get(reqUrl, { headers: { 'x-api-key': CF_KEY, 'User-Agent': 'SlimeLauncher/1.0.0' } }, (res: any) => {
-        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          return doReq(res.headers.location);
-        }
-        if (res.statusCode && res.statusCode >= 400) {
-          res.resume();
-          reject(new Error(`HTTP ${res.statusCode} downloading ${reqUrl}`));
-          return;
-        }
-        const out = fs.createWriteStream(dest);
-        res.pipe(out);
-        out.on('finish', () => { out.close(); resolve(); });
-        out.on('error', reject);
-      }).on('error', reject);
-    };
-    doReq(url);
   });
 }
 
@@ -148,21 +122,29 @@ export function registerMapHandlers(deps: HandlerDeps) {
     const savesDir = path.join(instanceDir, 'saves');
     fs.mkdirSync(downloadsDir, { recursive: true });
     fs.mkdirSync(savesDir, { recursive: true });
-    const dest = path.join(downloadsDir, fileName);
+    // The archive name comes from the network — strip any directory parts.
+    const safeFileName = path.basename(String(fileName));
+    const dest = path.join(downloadsDir, safeFileName);
 
     const dlId = downloadManager.enqueue(data.name, fileUrl, dest, 'map');
-    waitForDownload(downloadManager, dlId, dest, savesDir, data.name, logger).catch((err) => {
-      notify(deps, { type: 'error', title: 'Map install failed', message: String(err) });
+
+    // Fire-and-forget: the DB row is created only after the download AND the
+    // extraction succeed, so a failed/cancelled/timed-out download can never
+    // leave a phantom map in the installed list.
+    void finishMapInstall(deps, {
+      dlId,
+      archivePath: dest,
+      savesDir,
+      instanceId: data.instanceId,
+      name: data.name,
+      author: data.author || 'Community',
+      mapType: data.mapType || 'Adventure',
+      fileName: safeFileName,
     });
 
-    const id = randomUUID();
-    db.prepare(
-      'INSERT INTO maps (id, instance_id, name, author, map_type, file_name, installed_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(id, data.instanceId, data.name, data.author || 'Community', data.mapType || 'Adventure', fileName, Date.now());
-
-    logger.info('Map install started', { id, name: data.name, dlId });
+    logger.info('Map install started', { name: data.name, dlId });
     notify(deps, { type: 'info', title: 'Installing map', message: `${data.name} is downloading...` });
-    return { ok: true, mapId: id, downloadId: dlId };
+    return { ok: true, downloadId: dlId };
   });
 
   ipcMain.handle(IPC.MAP_OPEN_FOLDER, (_e, id: string) => {
@@ -179,9 +161,9 @@ export function registerMapHandlers(deps: HandlerDeps) {
     if (row) {
       const settings = settingsStore.load();
       // Delete the downloaded archive
-      const file = path.join(settings.minecraftDirectory, row.instance_id, 'downloads', row.file_name);
+      const file = path.join(settings.minecraftDirectory, row.instance_id, 'downloads', path.basename(row.file_name));
       try { fs.unlinkSync(file); } catch { /* ignore */ }
-      // Delete the extracted saves folder
+      // Delete the extracted world folder (all hoisted worlds live inside it).
       const safeName = row.name.replace(/[<>:"/\\|?*]+/g, '').trim();
       if (safeName) {
         const savesDir = path.join(settings.minecraftDirectory, row.instance_id, 'saves', safeName);
@@ -209,28 +191,161 @@ export function registerMapHandlers(deps: HandlerDeps) {
   });
 }
 
-async function waitForDownload(downloadManager: HandlerDeps['downloadManager'], id: string, archivePath: string, savesDir: string, name: string, logger: HandlerDeps['logger']) {
+interface MapInstallJob {
+  dlId: string;
+  archivePath: string;
+  savesDir: string;
+  instanceId: string;
+  name: string;
+  author: string;
+  mapType: string;
+  fileName: string;
+}
+
+// Waits for the queued download, unpacks it into saves/ and only then records
+// the map in the DB. Every failure path notifies with the concrete reason and
+// leaves no trace (no phantom list entries, no half-extracted folders).
+async function finishMapInstall(deps: HandlerDeps, job: MapInstallJob): Promise<void> {
+  const { downloadManager, db, logger } = deps;
+  const fail = (message: string) => {
+    logger.warn('Map install failed', { name: job.name, message });
+    notify(deps, { type: 'error', title: 'Map install failed', message: `${job.name}: ${message}` });
+  };
+
+  // 1. Wait for the download (3 min cap).
+  let completed = false;
   for (let attempt = 0; attempt < 180; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    const task = downloadManager.list().find((item) => item.id === id);
-    if (!task) return;
-    if (task.status === 'error' || task.status === 'cancelled') return;
-    if (task.status !== 'completed') continue;
-    try {
-      const safeName = name.replace(/[<>:"/\\|?*]+/g, '').trim() || 'World';
-      const target = path.join(savesDir, safeName);
-      fs.mkdirSync(target, { recursive: true });
-      if (archivePath.toLowerCase().endsWith('.zip')) {
-        await execFileAsync(process.platform === 'win32' ? 'powershell.exe' : 'unzip', process.platform === 'win32' ? ['-NoProfile', '-Command', `Expand-Archive -LiteralPath '${archivePath.replace(/'/g, "''")}' -DestinationPath '${target.replace(/'/g, "''")}' -Force`] : ['-o', archivePath, '-d', target]);
+    const task = downloadManager.list().find((item) => item.id === job.dlId);
+    if (!task) {
+      // Task row gone (pruned/cleared): continue only if the file is there.
+      try {
+        if (fs.statSync(job.archivePath).size > 0) { completed = true; break; }
+      } catch { /* missing */ }
+      return fail('the download was cancelled.');
+    }
+    if (task.status === 'error') return fail(`the download failed${task.error ? `: ${task.error}` : '.'}`);
+    if (task.status === 'cancelled') return fail('the download was cancelled.');
+    if (task.status === 'completed') { completed = true; break; }
+  }
+  if (!completed) return fail('the download timed out. Check your connection and try again.');
+  if (!fs.existsSync(job.archivePath)) return fail('the downloaded file is missing.');
+
+  // 2. Extract.
+  const safeName = job.name.replace(/[<>:"/\\|?*]+/g, '').trim() || 'World';
+  const target = path.join(job.savesDir, safeName);
+  const isZip = /\.zip$/i.test(job.archivePath) || /\.mcworld$/i.test(job.archivePath);
+  try {
+    fs.mkdirSync(target, { recursive: true });
+    if (isZip) {
+      if (process.platform === 'win32') {
+        await execFileAsync('powershell.exe', ['-NoProfile', '-Command', `Expand-Archive -LiteralPath '${job.archivePath.replace(/'/g, "''")}' -DestinationPath '${target.replace(/'/g, "''")}' -Force`]);
       } else {
-        fs.copyFileSync(archivePath, path.join(target, path.basename(archivePath)));
+        await execFileAsync('unzip', ['-o', job.archivePath, '-d', target]);
       }
-      logger.info('Map installed into saves', { id, target });
-      try { fs.unlinkSync(archivePath); } catch { /* keep download if cleanup fails */ }
+      hoistNestedWorld(target, logger);
+      // The world must actually be visible to the game now.
+      if (findWorldDirs(target).length === 0) {
+        try { fs.rmSync(target, { recursive: true, force: true }); } catch { /* ignore */ }
+        return fail('the archive contains no world (level.dat not found).');
+      }
+    } else {
+      // Unknown archive type (e.g. .rar) — keep the file for manual unpacking.
+      fs.copyFileSync(job.archivePath, path.join(target, path.basename(job.archivePath)));
+    }
+  } catch (e) {
+    try { fs.rmSync(target, { recursive: true, force: true }); } catch { /* ignore */ }
+    return fail(`could not unpack the archive (${e instanceof Error ? e.message : String(e)}).`);
+  }
+
+  // 3. Record + cleanup.
+  try { fs.unlinkSync(job.archivePath); } catch { /* keep the archive if cleanup fails */ }
+  db.prepare(
+    'INSERT INTO maps (id, instance_id, name, author, map_type, file_name, installed_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(randomUUID(), job.instanceId, job.name, job.author, job.mapType, job.fileName, Date.now());
+  logger.info('Map installed into saves', { name: job.name, target });
+  notify(deps, { type: 'success', title: 'Map installed', message: `${job.name} is ready in saves.` });
+}
+
+// Finds world folders under a directory: relative paths of dirs containing
+// level.dat ('' = the directory itself), max 4 levels deep, skipping
+// junk like __MACOSX and dot-folders.
+function findWorldDirs(root: string): string[] {
+  const out: string[] = [];
+  const walk = (dir: string, rel: string, depth: number): void => {
+    if (depth > 4) return;
+    let entries: import('node:fs').Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
       return;
-    } catch (error) {
-      logger.error('Map extraction failed', { id, error: String(error) });
+    }
+    if (entries.some((e) => e.isFile() && e.name === 'level.dat')) out.push(rel);
+    for (const e of entries) {
+      if (!e.isDirectory()) continue;
+      if (e.name.startsWith('.') || e.name === '__MACOSX') continue;
+      walk(path.join(dir, e.name), rel ? `${rel}${path.sep}${e.name}` : e.name, depth + 1);
+    }
+  };
+  walk(root, '', 0);
+  return out;
+}
+
+function uniquePath(p: string): string {
+  if (!fs.existsSync(p)) return p;
+  let i = 2;
+  while (fs.existsSync(`${p} (${i})`)) i += 1;
+  return `${p} (${i})`;
+}
+
+// Removes empty directories upwards from `dir` (exclusive) to `root`.
+function pruneEmptyParents(root: string, dir: string): void {
+  let cur = dir;
+  while (cur !== root && cur.startsWith(root)) {
+    let empty = false;
+    try {
+      empty = fs.readdirSync(cur).length === 0;
+      if (empty) fs.rmdirSync(cur);
+    } catch {
       return;
+    }
+    if (!empty) return;
+    cur = path.dirname(cur);
+  }
+}
+
+// Map zips usually wrap the world in a top-level folder, e.g.
+// saves/<name>/<World>/level.dat — the game only reads saves/<dir>/level.dat
+// one level deep, so such worlds show up under a wrong name (or not at all
+// when nested deeper). Hoist nested worlds into <name>/ itself: a single
+// world is merged in (its folder takes the map's name), several worlds each
+// become a direct child ("<World1>", "<World2>", …). Direct children are
+// already visible and are left alone.
+function hoistNestedWorld(target: string, logger: HandlerDeps['logger']): void {
+  const worlds = findWorldDirs(target).filter((d) => d !== '');
+  if (worlds.length === 0) return; // caller reports "no level.dat"
+  for (const rel of worlds) {
+    const src = path.join(target, rel);
+    try {
+      if (worlds.length === 1) {
+        // Single world: merge its contents into the target root.
+        fs.mkdirSync(target, { recursive: true });
+        for (const entry of fs.readdirSync(src)) {
+          fs.renameSync(path.join(src, entry), uniquePath(path.join(target, entry)));
+        }
+        pruneEmptyParents(target, src);
+        logger.info('Hoisted nested map world', { from: rel, to: '.' });
+      } else if (rel.includes(path.sep)) {
+        // Several worlds, nested deeper: move each whole folder up so every
+        // world becomes a direct (visible) child of the target.
+        const dest = uniquePath(path.join(target, path.basename(rel)));
+        fs.renameSync(src, dest);
+        pruneEmptyParents(target, path.dirname(src));
+        logger.info('Hoisted nested map world', { from: rel, to: path.basename(dest) });
+      }
+      // Several worlds as direct children: already visible, leave them.
+    } catch (e) {
+      logger.warn('Failed to hoist nested map world', { from: rel, error: String(e) });
     }
   }
 }

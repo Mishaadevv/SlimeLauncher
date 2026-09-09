@@ -14,7 +14,7 @@ import { t } from '@/lib/i18n';
 import './AccountPage.css';
 
 export function AccountPage() {
-  const { user, activeMicrosoft, logout, updateProfile, changePassword, microsoftAccounts, loadMicrosoft, logoutMicrosoft, setActiveMicrosoft } = useAuthStore();
+  const { user, activeMicrosoft, logout, updateProfile, changePassword, microsoftAccounts, loadMicrosoft, logoutMicrosoft } = useAuthStore();
   const { instances } = useInstanceStore();
   const { navigate } = useNavigationStore();
   const { add } = useNotificationStore();

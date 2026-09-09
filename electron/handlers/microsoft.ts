@@ -58,17 +58,6 @@ function postJson(url: string, body: string, contentType = 'application/x-www-fo
   });
 }
 
-function fetchJson(url: string): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const client = url.startsWith('https') ? https : http;
-    client.get(url, { headers: { 'User-Agent': 'SlimeLauncher/1.0.0' } }, (res) => {
-      let data = '';
-      res.on('data', (c: Buffer) => (data += c));
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
-    }).on('error', reject);
-  });
-}
-
 function rowToMs(r: Record<string, unknown>): MicrosoftAccount {
   return {
     id: String(r.id),
@@ -180,13 +169,64 @@ async function completeMsLogin(deps: HandlerDeps, msAccessToken: string, msRefre
     throw new Error('This Microsoft account does not own Minecraft Java Edition, so it has no game profile to link. Make sure you purchased Minecraft Java Edition on this account.');
   }
 
-  const id = randomUUID();
   const expiresAt = Date.now() + 3600 * 1000;
+  // Clear the offline session (settings key AND its sessions row — mirrors
+  // clearOfflineSession()) and deactivate other MS accounts so the legacy
+  // consumers (launch, skins, presence, network) see exactly ONE active
+  // identity - the freshly linked Microsoft one. Inlined here to avoid a
+  // circular import at module load.
+  const tokenRow = db.prepare("SELECT value FROM settings WHERE key = 'slime_session_token'").get() as { value?: string } | undefined;
+  if (tokenRow?.value) {
+    try {
+      const oldToken = JSON.parse(tokenRow.value) as string;
+      db.prepare('DELETE FROM sessions WHERE token = ?').run(oldToken);
+    } catch { /* malformed value */ }
+  }
+  db.prepare("DELETE FROM settings WHERE key = 'slime_session_token'").run();
   db.prepare('UPDATE microsoft_accounts SET is_active = 0').run();
-  db.prepare(
-    'INSERT INTO microsoft_accounts (id, username, uuid, access_token, refresh_token, expires_at, linked_at, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)'
-  ).run(id, profile.name, profile.id, mcToken, msRefreshToken, expiresAt, Date.now());
+  // Relink safety: the same licensed account linked twice must UPDATE the
+  // existing row, not insert a ghost duplicate (two identical nicks in the
+  // Accounts list, stale token on the old row).
+  const dashlessUuid = String(profile.id).replace(/-/g, '').toLowerCase();
+  const sameUuid = db.prepare(
+    "SELECT id FROM microsoft_accounts WHERE replace(lower(uuid), '-', '') = ?"
+  ).get(dashlessUuid) as { id: string } | undefined;
+  const id = sameUuid?.id || randomUUID();
+  if (sameUuid) {
+    db.prepare(
+      'UPDATE microsoft_accounts SET username = ?, uuid = ?, access_token = ?, refresh_token = ?, expires_at = ?, linked_at = ?, is_active = 1 WHERE id = ?'
+    ).run(profile.name, profile.id, mcToken, msRefreshToken, expiresAt, Date.now(), id);
+  } else {
+    db.prepare(
+      'INSERT INTO microsoft_accounts (id, username, uuid, access_token, refresh_token, expires_at, linked_at, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)'
+    ).run(id, profile.name, profile.id, mcToken, msRefreshToken, expiresAt, Date.now());
+  }
   ensureSavedAccount(deps, { kind: 'microsoft', nick: profile.name, msId: id });
+  // Adopt the offline-nick skin (if any) for the new licensed identity: the
+  // game resolves licensed players by UUID while offline skins are keyed by
+  // nick, so without this copy the player's custom skin would "stay behind"
+  // on the offline row and the licensed account would render as Steve.
+  // Copy, don't move — the offline account keeps its skin.
+  try {
+    const off = db.prepare(
+      'SELECT skin_data, cape_data, variant FROM offline_skins WHERE lower(username) = lower(?)'
+    ).get(profile.name) as { skin_data: string | null; cape_data: string | null; variant: string | null } | undefined;
+    const hasCustom = db.prepare('SELECT 1 AS one FROM offline_skins WHERE username = ?').get(id) as unknown;
+    if ((off?.skin_data || off?.cape_data) && !hasCustom) {
+      db.prepare(
+        'INSERT INTO offline_skins (username, skin_data, cape_data, variant, updated_at) VALUES (?, ?, ?, ?, ?)'
+      ).run(id, off.skin_data, off.cape_data, off.variant || 'classic', Date.now());
+      logger.info('Adopted offline skin for linked Microsoft account', { username: profile.name });
+    }
+  } catch (e) {
+    logger.warn('Offline skin adoption failed', { error: String(e) });
+  }
+  // Push the new identity to an active Network session (dynamic import avoids
+  // a module cycle); no-op when not in a network.
+  try {
+    const { updateNetworkIdentity } = await import('./network.js');
+    await updateNetworkIdentity(db);
+  } catch { /* best effort */ }
 
   logger.info('Microsoft account linked', { username: profile.name });
   notify(deps, { type: 'success', title: 'Microsoft account linked', message: `Logged in as ${profile.name}` });
@@ -293,7 +333,7 @@ export function registerMsHandlers(deps: HandlerDeps) {
     }
     // Access tokens only live ~1 hour. Silently refresh with the stored
     // refresh token so linked accounts keep working across sessions.
-    let token = await refreshMsTokenIfExpired(deps, row);
+    const token = await refreshMsTokenIfExpired(deps, row);
     if (!token) {
       return { ok: false, error: 'Microsoft session expired. Re-link your account.' };
     }

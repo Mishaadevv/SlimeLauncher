@@ -79,6 +79,24 @@ export function offlineUuid(username: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+// Matches an incoming dashless offline UUID against a stored (possibly
+// lowercased) skin key plus known original-case nicks. Offline UUIDs are
+// md5("OfflinePlayer:<EXACT name>") — "Sigmultra452" and "sigmultra452" are
+// different players — while skin keys are stored lowercased, so the exact
+// case must come from a known source. Returns the nick case that produced
+// the match, or null.
+export function resolveOfflineUuidMatch(uuidDashless: string, storedUsername: string, knownNicks: string[]): string | null {
+  const target = String(uuidDashless).replace(/-/g, '').toLowerCase();
+  const tried = new Set<string>();
+  for (const cand of [storedUsername, storedUsername.toLowerCase(), ...knownNicks]) {
+    const c = String(cand || '');
+    if (!c || tried.has(c)) continue;
+    tried.add(c);
+    if (offlineUuid(c).replace(/-/g, '').toLowerCase() === target) return c;
+  }
+  return null;
+}
+
 interface SkinRow {
   username: string;
   skin_data: string | null;
@@ -365,14 +383,14 @@ export class SkinServer {
       // /MinecraftSkins/<name>.png — legacy skin-by-name endpoint used by
       // pre-1.7 clients (1.0–1.6.4) after the launcher rewrites their hardcoded
       // skin host to this server.
-      const legacySkinMatch = pathname.match(/^\/MinecraftSkins\/([A-Za-z0-9_\-]{1,32})\.png$/);
+      const legacySkinMatch = pathname.match(/^\/MinecraftSkins\/([A-Za-z0-9_-]{1,32})\.png$/);
       if (legacySkinMatch) {
         this.serveLegacyTexture(res, legacySkinMatch[1], false);
         return;
       }
 
       // /MinecraftCloaks/<name>.png — legacy cape-by-name endpoint (1.0–1.6.4).
-      const legacyCloakMatch = pathname.match(/^\/MinecraftCloaks\/([A-Za-z0-9_\-]{1,32})\.png$/);
+      const legacyCloakMatch = pathname.match(/^\/MinecraftCloaks\/([A-Za-z0-9_-]{1,32})\.png$/);
       if (legacyCloakMatch) {
         this.serveLegacyTexture(res, legacyCloakMatch[1], true);
         return;
@@ -681,9 +699,13 @@ export class SkinServer {
           'SELECT username, skin_data, cape_data, variant FROM offline_skins WHERE lower(username) = lower(?)'
         ).get(username) as { username: string; skin_data: string | null; cape_data: string | null; variant: string | null } | undefined;
         if (row) {
-          const uuid = offlineUuid(row.username).replace(/-/g, '');
+          // Derive from the REQUESTED name (exact case): offline UUIDs are
+          // md5("OfflinePlayer:<exact name>"). Deriving from the lowercased DB
+          // key would hand the server a UUID that doesn't match the joining
+          // player (kick / skin bound to a phantom uuid).
+          const uuid = offlineUuid(username).replace(/-/g, '');
           const texProp = this.buildTextureProperty(uuid, row.skin_data, row.cape_data, row.variant);
-          return { id: uuid, name: row.username, ...(texProp ? { properties: [texProp] } : {}) };
+          return { id: uuid, name: username, ...(texProp ? { properties: [texProp] } : {}) };
         }
       } catch { /* ignore */ }
     }
@@ -731,6 +753,39 @@ export class SkinServer {
     return { name: 'textures', value: Buffer.from(JSON.stringify(textures)).toString('base64') };
   }
 
+  // Nicknames in original case from every source this machine knows (recently
+  // seen players, saved offline accounts, active user). Needed because skin
+  // keys are stored lowercased while UUID matching requires the exact case.
+  private knownNickCases(): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const add = (n: unknown) => {
+      const s = String(n || '').trim();
+      if (!s || s.length > 24 || seen.has(s.toLowerCase())) return;
+      seen.add(s.toLowerCase());
+      out.push(s);
+    };
+    for (const n of this.recentNicks) add(n);
+    if (this.db.isReady()) {
+      try {
+        const rows = this.db.prepare("SELECT nick FROM saved_accounts WHERE kind = 'offline'").all() as Array<{ nick: string }>;
+        for (const r of rows) add(r.nick);
+      } catch { /* ignore */ }
+      try {
+        const tokenRow = this.db.prepare("SELECT value FROM settings WHERE key = 'slime_session_token'").get() as { value?: string } | undefined;
+        if (tokenRow?.value) {
+          const token = JSON.parse(tokenRow.value) as string;
+          const sess = this.db.prepare('SELECT user_id FROM sessions WHERE token = ?').get(token) as { user_id?: string } | undefined;
+          if (sess?.user_id) {
+            const u = this.db.prepare('SELECT username FROM users WHERE id = ?').get(sess.user_id) as { username?: string } | undefined;
+            add(u?.username);
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    return out;
+  }
+
   private findOfflineSkinByUuid(uuidDashless: string): SkinRow | null {
     if (!this.db.isReady()) return null;
     try {
@@ -746,18 +801,22 @@ export class SkinServer {
           variant: direct.variant,
         };
       }
-      // 2. Offline skins: match the offline uuid derived from the stored nick.
+      // 2. Offline skins: match the offline uuid derived from the nick.
       // (Include cape-only rows too — a player may set a cape without a skin.)
-      // Check both the stored case and lowercased variant so old accounts
-      // created as "Player" still resolve when the server asks for "player".
+      // Stored keys are lowercased but the game derives UUIDs from the EXACT
+      // typed name, so known original-case nicks are tried as well — otherwise
+      // any nick with a capital letter ("Sigmultra452") never resolves and the
+      // player renders as Steve. The matched case is returned so profile names
+      // keep their original spelling.
+      const knownCases = this.knownNickCases();
       const rows = this.db.prepare('SELECT username, skin_data, cape_data, variant FROM offline_skins WHERE skin_data IS NOT NULL OR cape_data IS NOT NULL').all() as Array<Record<string, unknown>>;
       for (const r of rows) {
         const username = String(r.username);
-        const dashless = offlineUuid(username).replace(/-/g, '').toLowerCase();
-        const dashlessLower = offlineUuid(username.toLowerCase()).replace(/-/g, '').toLowerCase();
-        if (dashless === uuidDashless || dashlessLower === uuidDashless) {
+        if (/^[0-9a-f]{32}$/i.test(username)) continue; // uuid-keyed MS rows: step 1
+        const matched = resolveOfflineUuidMatch(uuidDashless, username, knownCases);
+        if (matched) {
           return {
-            username,
+            username: matched,
             skin_data: r.skin_data ? String(r.skin_data) : null,
             cape_data: r.cape_data ? String(r.cape_data) : null,
             variant: r.variant ? String(r.variant) : null,
@@ -869,9 +928,6 @@ export class SkinServer {
         /* keep uuid as fallback */
       }
     }
-    // The real session server returns the canonical 8-4-4-4-12 dashed id;
-    // newer authlib parses it straight into a UUID, so match that format.
-    const dashedUuid = uuid.replace(/^(\w{8})(\w{4})(\w{4})(\w{4})(\w{12})$/, '$1-$2-$3-$4-$5');
     // The ?hd=1/?sd=1 marker makes the texture URL change when the user toggles
     // HD mode, so the game's texture cache can't serve a stale resolution.
     const hd = this.hdMode();

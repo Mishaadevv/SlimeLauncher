@@ -14,7 +14,6 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ children, hover = false, interactive = false, glow = false, className, ...rest }, ref) => {
     const { settings } = useSettingsStore();
     const anim = settings.animationsEnabled && !settings.reducedMotion;
-    const intensity = settings.animationIntensity;
 
     return (
       <motion.div

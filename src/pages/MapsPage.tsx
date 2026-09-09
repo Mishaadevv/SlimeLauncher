@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Download, User as UserIcon, Map as MapIcon, FolderOpen, Trash2, RefreshCw, X, Image } from 'lucide-react';
+import { Search, Download, User as UserIcon, Map as MapIcon, FolderOpen, Trash2, RefreshCw, X } from 'lucide-react';
 import type { MapEntry } from '@shared/types';
 import { useInstanceStore } from '@/store/instance-store';
 import { useNotificationStore } from '@/store/notification-store';
@@ -76,17 +76,17 @@ export function MapsPage() {
   }, [selectedInstance?.mcVersion]);
   useEffect(() => {
     if (selectedInstance?.mcVersion) setGameVersion(selectedInstance.mcVersion);
-  }, [selectedInstance?.id]);
+  }, [selectedInstance?.mcVersion]);
 
-  const loadInstalled = async () => {
+  const loadInstalled = useCallback(async () => {
     if (!selectedInstance) { setInstalled([]); return; }
     setInstalledLoading(true);
     try { setInstalled(await window.slime.map.list(selectedInstance.id)); }
     catch (e) { add({ type: 'error', title: t('maps.load_failed'), message: String(e), duration: 3500 }); }
     finally { setInstalledLoading(false); }
-  };
+  }, [selectedInstance, add]);
 
-  useEffect(() => { void loadInstalled(); }, [selectedId, instances.length]);
+  useEffect(() => { void loadInstalled(); }, [loadInstalled]);
 
   const doSearch = useCallback(async (reset = false) => {
     const gen = ++searchGenRef.current;

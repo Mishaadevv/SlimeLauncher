@@ -153,7 +153,7 @@ export async function upnpAddPortMapping(
 </u:AddPortMapping>
 </s:Body>
 </s:Envelope>`;
-  return soapAction(igd, body, 'AddPortMapping', externalPort, protocol).then((ok) => ok, () => false);
+  return soapAction(igd, body, 'AddPortMapping').then((ok) => ok, () => false);
 }
 
 // Removes a previously added mapping.
@@ -172,10 +172,10 @@ export async function upnpDeletePortMapping(
 </u:DeletePortMapping>
 </s:Body>
 </s:Envelope>`;
-  await soapAction(igd, body, 'DeletePortMapping', externalPort, protocol).catch(() => { /* best effort */ });
+  await soapAction(igd, body, 'DeletePortMapping').catch(() => { /* best effort */ });
 }
 
-function soapAction(igd: IgdInfo, body: string, action: string, port: number, protocol: string): Promise<boolean> {
+function soapAction(igd: IgdInfo, body: string, action: string): Promise<boolean> {
   return new Promise((resolve) => {
     const url = new URL(igd.controlUrl);
     const req = http.request(
