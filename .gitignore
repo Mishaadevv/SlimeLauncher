@@ -6,3 +6,6 @@ release/
 .vscode/
 .tmp-a3
 *.log
+# tool junk
+.freebuff/
+opencode.jsonc

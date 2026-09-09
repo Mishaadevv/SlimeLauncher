@@ -537,13 +537,19 @@ export class PresenceService {
     }
     if (p.slime !== 1 || !p.nick) return;
     const nick = String(p.nick).slice(0, 32);
-    const isSelf = this.identity().nick.toLowerCase() === nick.toLowerCase();
-    if (isSelf) return;
+    // Ignore our own multicast echo — but compare UUID too, not just nick:
+    // two fresh installs both broadcast as "player", and nick-only matching
+    // made them ignore EACH OTHER forever (no friends, no skins).
+    const self = this.identity();
+    const pktUuid = typeof p.uuid === 'string' ? p.uuid.replace(/-/g, '').toLowerCase() : '';
+    const selfUuid = self.uuid.replace(/-/g, '').toLowerCase();
+    if (self.nick.toLowerCase() === nick.toLowerCase() && (!pktUuid || pktUuid === selfUuid)) return;
 
     // Cache the skin BEFORE the friends-list gate: skins must resolve for
     // every nearby SlimeLauncher player, not only for added friends —
     // otherwise two launcher users who aren't friends see plain Steves.
     if (typeof p.skin === 'string' && p.skin) {
+      const prev = this.peerSkins.get(nick.toLowerCase());
       this.peerSkins.set(nick.toLowerCase(), {
         nick,
         uuid: typeof p.uuid === 'string' && p.uuid ? p.uuid : null,
@@ -551,6 +557,9 @@ export class PresenceService {
         skinVariant: typeof p.skinVariant === 'string' && p.skinVariant ? p.skinVariant : null,
         lastSeen: Date.now(),
       });
+      if (!prev?.skin || prev.skin !== p.skin) {
+        this.logger.debug('Learned LAN peer skin', { nick });
+      }
     } else {
       this.peerSkins.delete(nick.toLowerCase());
     }

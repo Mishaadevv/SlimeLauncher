@@ -325,6 +325,7 @@ export class SkinServer {
         const uuid = profileMatch[1].replace(/-/g, '').toLowerCase();
         const row = this.findOfflineSkinByUuid(uuid);
         if (row && (row.skin_data || row.cape_data)) {
+          this.logger.debug('Profile served from local DB', { uuid, username: row.username });
           this.serveProfile(res, row, uuid);
           return;
         }
@@ -334,6 +335,7 @@ export class SkinServer {
         if (this.skinDirectory?.isEnabled()) {
           const remote = await this.skinDirectory.lookupByUuid(uuid);
           if (remote && (remote.skin || remote.cape)) {
+            this.logger.debug('Profile served from skin directory', { uuid, username: remote.username });
             this.serveProfile(res, { username: remote.username || uuid, skin_data: remote.skin, cape_data: remote.cape, variant: remote.variant }, uuid);
             return;
           }
@@ -343,11 +345,18 @@ export class SkinServer {
         // This makes skins work "out of the box" on any server without manual skinDirectoryUrl.
         const elyRow = await this.tryElyByForUuid(uuid);
         if (elyRow && (elyRow.skin_data || elyRow.cape_data)) {
+          this.logger.debug('Profile served from ely.by', { uuid, username: elyRow.username });
           this.serveProfile(res, elyRow, uuid);
           return;
         }
         // No custom skin — forward to the real session server (returns 204 for
         // unknown offline uuids, real skins for Microsoft accounts).
+        this.logger.debug('Profile proxied to Mojang (no local skin)', {
+          uuid,
+          peers: this.networkPeerSkins.size,
+          recentNicks: this.recentNicks.size,
+          directory: this.skinDirectory?.isEnabled() ? 'on' : 'off',
+        });
         this.proxy(req, res, pathname, url.search);
         return;
       }
